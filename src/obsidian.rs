@@ -26,7 +26,7 @@ extern "C" {
     #[wasm_bindgen(method)]
     pub fn getMarkdownFiles(this: &Vault) -> Vec<TFile>;
     #[wasm_bindgen(method, catch)]
-    pub async fn read(this: &Vault, file: TFile) -> Result<JsValue, JsValue>;
+    pub async fn cachedRead(this: &Vault, file: TFile) -> Result<JsValue, JsValue>;
     #[wasm_bindgen(method, getter)]
     pub fn adapter(this: &Vault) -> DataAdapter;
 

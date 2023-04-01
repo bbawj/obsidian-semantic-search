@@ -28,6 +28,7 @@ pub enum SemanticSearchError {
     JSONDeserialize(serde_json::Error),
     ApiError(ApiError),
     InvalidArgument(String),
+    GetEmbeddingsError(String),
 }
 
 impl std::fmt::Display for SemanticSearchError {
@@ -40,6 +41,7 @@ impl std::fmt::Display for SemanticSearchError {
             SemanticSearchError::JSONDeserialize(e) => write!(f, "JSONDeserialize error: {:?}", e),
             SemanticSearchError::ApiError(e) => write!(f, "API error: {}: {}", e.r#type, e.message),
             SemanticSearchError::InvalidArgument(e) => write!(f, "Invalid argument: {}", e),
+            SemanticSearchError::GetEmbeddingsError(e) => write!(f, "GetEmbeddingsError: {}", e),
         }
     }
 }

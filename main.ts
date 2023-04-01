@@ -1,4 +1,4 @@
-import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
+import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting, SuggestModal } from 'obsidian';
 
 import * as plugin from "./pkg/obsidian_rust_plugin.js";
 import * as wasmbin from './pkg/obsidian_rust_plugin_bg.wasm';
@@ -59,7 +59,7 @@ export default class MyPlugin extends Plugin {
 					// If checking is true, we're simply "checking" if the command can be run.
 					// If checking is false, then we want to actually perform the operation.
 					if (!checking) {
-						new SampleModal(this.app).open();
+						new ExampleModal(this.app, this.settings).open();
 					}
 
 					// This command will only show up in Command Palette when the check function returns true
@@ -112,6 +112,36 @@ class SampleModal extends Modal {
 		const {contentEl} = this;
 		contentEl.empty();
 	}
+}
+
+type Suggestion = {
+  name: string,
+  header: string
+}
+
+export class ExampleModal extends SuggestModal<Suggestion> {
+  settings: semanticSearchSettings = DEFAULT_SETTINGS;
+
+  constructor(app: App, settings: semanticSearchSettings) {
+    super(app);
+    this.settings = settings;
+  }
+  // Returns all available suggestions.
+  async getSuggestions(query: string): Promise<Suggestion[]> {
+    const suggestions = await plugin.get_suggestions(this.app, this.settings.apiKey, query);
+    return suggestions;
+  }
+
+  // Renders each suggestion item.
+  renderSuggestion(suggestion: Suggestion, el: HTMLElement) {
+    el.createEl("div", { text: suggestion.name});
+    el.createEl("small", { text: suggestion.header});
+  }
+
+  // Perform action on the selected suggestion.
+  onChooseSuggestion(suggestion: Suggestion, evt: MouseEvent | KeyboardEvent) {
+    new Notice(`Selected ${suggestion.name}`);
+  }
 }
 
 class SampleSettingTab extends PluginSettingTab {
