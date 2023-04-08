@@ -1,6 +1,6 @@
 {
-	"name": "sample-rust-plugin",
-	"description": "This is a sample plugin for Obsidian (https://obsidian.md)",
+	"name": "obsidian-semantic-search",
+	"description": "Semantic search for files using GPT Embeddings",
 	"version": "1.0.0",
 	"main": "main.js",
 	"scripts": {
