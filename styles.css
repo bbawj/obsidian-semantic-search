@@ -6,8 +6,12 @@ available in the app when your plugin is enabled.
 If your plugin does not need CSS, delete this file.
 
 */
-.suggestion-item:hover {
+.ss-suggestion-item:hover {
   background-color: var(--background-modifier-hover);
+}
+
+.ss-query-submit-button {
+  margin-right: 1rem;
 }
 
 .ss-estimate-container {
