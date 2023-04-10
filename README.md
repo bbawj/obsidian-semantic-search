@@ -5,8 +5,8 @@ Find what you are looking for based on what you mean. A new file switcher powere
 ## Commands
 |Command|Description|
 |-------|-----------|
-|Generate Input|Generate input csv based on sections of your notes. Currently, sections are defined as text blocks between headings (does not include H1).
-|Generate Embedding|Obtain embeddings via OpenAI's `text-embedding-ada-002` embedding model.
+|Generate Input|Generate input csv based on sections of your notes. Currently, sections are defined as text blocks between headings (does not include H1). Prepared input is saved as `input.csv` in your root folder.
+|Generate Embedding|Obtain embeddings via OpenAI's `text-embedding-ada-002` embedding model. Generaeted embeddings is saved as `embedding.csv` in your root folder.
 |Open Query Modal|Semantic search through your notes using generated embeddings.
 
 ## Configuration
