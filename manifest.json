@@ -3,7 +3,7 @@
 	"name": "Semantic Search",
 	"version": "0.1.0",
 	"minAppVersion": "1.0.0",
-	"description": "Semantic search for files using GPT Embeddings",
+	"description": "Semantic search for files using OpenAI's text embeddings",
 	"author": "bbawj",
 	"authorUrl": "https://github.com/bbawj",
 	"isDesktopOnly": true
