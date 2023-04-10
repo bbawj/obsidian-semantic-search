@@ -15,6 +15,8 @@ use file_processor::FileProcessor;
 use js_sys::JsString;
 use log::{debug, error};
 use ndarray::Array1;
+use obsidian::App;
+use obsidian::semanticSearchSettings;
 use reqwest::header::HeaderMap;
 use serde::Deserialize;
 use serde::Serialize;
@@ -56,8 +58,11 @@ impl GenerateInputCommand {
     }
 
     pub async fn callback(&self) {
-        let data = self.file_processor.generate_input().await.expect("failed to prepare input.csv");
-        // TODO: only write if file does not exist/delete the file first
+        let data = self.file_processor.generate_input().await.expect("failed to generate input.csv");
+        match self.file_processor.delete_file_at_path(DATA_FILE_PATH).await {
+            Ok(()) => (),
+            Err(e) => error!("{:?}", e),
+        }
         match self.file_processor.write_to_path(data, DATA_FILE_PATH).await {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
@@ -67,41 +72,21 @@ impl GenerateInputCommand {
 
 #[wasm_bindgen]
 pub struct GenerateEmbeddingsCommand {
-    id: JsString,
-    name: JsString,
     file_processor: FileProcessor,
     client: Client,
 }
 
 #[wasm_bindgen]
 impl GenerateEmbeddingsCommand {
-    #[wasm_bindgen(getter)]
-    pub fn id(&self) -> JsString {
-        self.id.clone()
+    #[wasm_bindgen(constructor)]
+    pub fn new(app: App, settings: semanticSearchSettings) -> GenerateEmbeddingsCommand {
+        let file_processor = FileProcessor::new(app.vault());
+        let client = Client::new(settings.apiKey());
+        GenerateEmbeddingsCommand { file_processor, client }
     }
 
-    #[wasm_bindgen(setter)]
-    pub fn set_id(&mut self, id: &str) {
-        self.id = JsString::from(id)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn name(&self) -> JsString {
-        self.name.clone()
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_name(&mut self, name: &str) {
-        self.name = JsString::from(name)
-    }
-    pub async fn callback(&self) {
-        match self.get_embeddings().await {
-            Ok(()) => (),
-            Err(e) => error!("{:?}", e),
-        }
-    }
-
-    async fn get_embeddings(&self) -> Result<(), SemanticSearchError> {
+    pub async fn get_embeddings(&self) -> Result<(), SemanticSearchError> {
+        self.file_processor.delete_file_at_path(EMBEDDING_FILE_PATH).await?;
         let input = self.file_processor.read_from_path(DATA_FILE_PATH).await?;
         let string_records = self.get_content_to_embed(input.clone())?;
         let request = self.client.create_embedding_request(string_records.into())?;
@@ -114,13 +99,13 @@ impl GenerateEmbeddingsCommand {
             EmbeddingInput::StringArray(arr) => {
                 for (i, input) in arr.iter().enumerate() {
                     let filename_header = match filename_header.get(i) {
-                        None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching filename and header for input index {}", i))),
+                        None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching filename and header for input index {}", i)).into()),
                         Some(filename_header) => filename_header
                     };
                     let filename = &filename_header.0;
                     let header = &filename_header.1;
                     let embedding = match &response.data.get(i) {
-                        None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching embedding for filename: {}, header: {}", filename, header))),
+                        None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching embedding for filename: {}, header: {}", filename, header)).into()),
                         Some(embedding) => {
                             let vec: Vec<String> = embedding.embedding.clone().into_iter().map(|f| f.to_string()).collect();
                             vec.join(",")
@@ -137,6 +122,19 @@ impl GenerateEmbeddingsCommand {
         adapter.append(EMBEDDING_FILE_PATH.to_string(), data).await?;
         debug!("Saved embeddings to {}", EMBEDDING_FILE_PATH);
         Ok(())
+    }
+
+    pub async fn get_input_cost_estimate(&self) -> Result<f32, SemanticSearchError> {
+        let input = self.file_processor.read_from_path(DATA_FILE_PATH).await?;
+        let string_records = self.get_content_to_embed(input)?;
+        let combined_string = string_records.join("");
+        let estimate = get_query_cost_estimate(&combined_string);
+        Ok(estimate)
+    }
+
+    pub async fn check_embedding_file_exists(&self) -> Result<bool, SemanticSearchError> {
+        let exists = self.file_processor.check_file_exists_at_path(EMBEDDING_FILE_PATH).await?;
+        Ok(exists)
     }
 
     fn get_content_to_embed(&self, input: String) -> Result<Vec<String>, SemanticSearchError> {
@@ -160,8 +158,6 @@ impl GenerateEmbeddingsCommand {
                           ).collect();
         Ok(filename_header)
     }
-
-
 }
 
 #[wasm_bindgen]
@@ -222,13 +218,14 @@ pub async fn get_suggestions(app: &obsidian::App, api_key: JsString, query: JsSt
 
 #[wasm_bindgen]
 pub fn get_query_cost_estimate(query: &str) -> f32 {
-    const TOKEN_COST: f32 = 0.0004;
+    const TOKEN_COST: f32 = 0.0004 / 1000.0;
     let tokens = cl100k_base().unwrap().encode_with_special_tokens(query); 
     let tokens_length = tokens.len() as f32;
     return TOKEN_COST * tokens_length;
 }
 
 #[derive(Debug, Clone)]
+/// Client is a container for api key, base url, organization id
 pub struct Client {
     api_key: String,
     api_base: String,
@@ -311,9 +308,7 @@ impl Client {
 pub fn onload(plugin: &obsidian::Plugin) {
     console_log::init_with_level(log::Level::Debug).expect("");
     let generate_input_cmd = build_prepare_cmd(plugin);
-    let generate_embeddings_cmd = build_get_embeddings_cmd(plugin);
     plugin.addCommand(JsValue::from(generate_input_cmd));
-    plugin.addCommand(JsValue::from(generate_embeddings_cmd));
     debug!("Semantic Search Loaded!");
 }
 
@@ -323,15 +318,5 @@ fn build_prepare_cmd(plugin: &obsidian::Plugin) -> GenerateInputCommand {
         id: JsString::from("generate_input"),
         name: JsString::from("Generate input"),
         file_processor
-    }
-}
-
-fn build_get_embeddings_cmd(plugin: &obsidian::Plugin) -> GenerateEmbeddingsCommand {
-    let file_processor = FileProcessor::new(plugin.app().vault());
-    GenerateEmbeddingsCommand {
-        id: JsString::from("generate_embeddings"),
-        name: JsString::from("Generate embeddings"),
-        file_processor,
-        client: Client::new(plugin.settings().apiKey())
     }
 }

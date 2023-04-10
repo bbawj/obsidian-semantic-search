@@ -1,4 +1,4 @@
-import { App, Modal, normalizePath, OpenViewState, PaneType, Plugin, PluginSettingTab, Pos, prepareSimpleSearch, renderResults, SearchResult, setIcon, Setting, SplitDirection, TFile, WorkspaceLeaf } from 'obsidian';
+import { App, Modal, normalizePath, Notice, OpenViewState, PaneType, Plugin, PluginSettingTab, Pos, prepareSimpleSearch, renderResults, SearchResult, setIcon, Setting, SplitDirection, TFile, WorkspaceLeaf } from 'obsidian';
 
 import * as plugin from "./pkg/obsidian_rust_plugin.js";
 import * as wasmbin from './pkg/obsidian_rust_plugin_bg.wasm';
@@ -17,7 +17,7 @@ export default class SemanticSearch extends Plugin {
 	async onload() {
 		await this.loadSettings();
 
-		this.addRibbonIcon('file-search-2', 'Semantic Search', (evt: MouseEvent) => {
+		this.addRibbonIcon('file-search-2', 'Semantic Search', (_: MouseEvent) => {
       new QueryModal(this.app, this.settings).open();
 		});
 
@@ -26,6 +26,14 @@ export default class SemanticSearch extends Plugin {
 			name: 'Open query modal',
 			callback: () => {
 				new QueryModal(this.app, this.settings).open();
+			}
+		});
+
+		this.addCommand({
+			id: 'generate-embeddings-modal',
+			name: 'Generate Embeddings',
+			callback: () => {
+				new GenerateEmbeddingsModal(this.app, this.settings).open();
 			}
 		});
 
@@ -163,8 +171,6 @@ export class QueryModal extends Modal {
 
   // Renders each suggestion item.
   renderSuggestion(suggestion: Suggestion, el: HTMLElement) {
-    // const div = el.createEl("div", { text: suggestion.name});
-    // el.createEl("small", { text: suggestion.header});
     el.onclick = async () => await this.onChooseSuggestion(suggestion);
     if (suggestion.match && suggestion.file) {
       const div = this.renderContent(el, suggestion.header, suggestion.match);
@@ -259,16 +265,53 @@ export class QueryModal extends Modal {
       this.app.workspace.setActiveLeaf(matchingLeaf, {focus: true});
       matchingLeaf.view.setEphemeralState(eState);
     }
-
     this.close();
   }
-
-
 
   async openFileInLeaf(file: TFile, navType: PaneType, splitDirection: SplitDirection = "vertical", openState: OpenViewState) {
     const { workspace } = this.app;
     const leaf = navType === "split" ? workspace.getLeaf(navType, splitDirection) : workspace.getLeaf(navType)
     await leaf.openFile(file, openState);
+  }
+}
+
+export class GenerateEmbeddingsModal extends Modal {
+  wasmGenerateEmbeddingsCommand : plugin.GenerateEmbeddingsCommand;
+
+  constructor(app: App, settings: semanticSearchSettings) {
+    super(app);
+    this.wasmGenerateEmbeddingsCommand = new plugin.GenerateEmbeddingsCommand(app, settings);
+  }
+
+  async onOpen() {
+     const contentEl = this.contentEl;
+     const estimate_container = contentEl.createDiv({cls: "ss-estimate-container"});
+     const exists_container = contentEl.createDiv();
+     const estimate_text = estimate_container.createDiv();
+     estimate_text.setText("Estimated cost of query: ...");
+
+     try {
+       const cost = await this.wasmGenerateEmbeddingsCommand.get_input_cost_estimate();
+       const exists = await this.wasmGenerateEmbeddingsCommand.check_embedding_file_exists();
+       if (exists) {
+         const exists_text = exists_container.createSpan({text: "Warning: the file 'embedding.csv' already exists.", cls: "ss-exists-text"})
+       }
+       estimate_text.setText("Estimated cost of query: $" + cost);
+     } catch (error) {
+       console.error(error)
+     }
+
+     const confirm_button = contentEl.createEl("button", {text: "Generate Embeddings"})
+     confirm_button.onclick = async () => {
+       this.close();
+       await this.wasmGenerateEmbeddingsCommand.get_embeddings();
+       new Notice("Successfully generated embeddings in 'embedding.csv'");
+     }
+  }
+
+  onClose() {
+    let { contentEl } = this;
+    contentEl.empty();
   }
 }
 

@@ -39,19 +39,26 @@ impl FileProcessor {
         let data = String::from_utf8(wtr.into_inner()?)?;
         Ok(data)
     }
-    
-    async fn process_file(&self, file: obsidian::TFile) -> std::io::Result<Vec<(String, String, String)>> {
-        let name = file.name();
-        let res = match self.vault.cachedRead(file).await {
-            Ok(text) => extract_sections(&name, &text.as_string().unwrap())?,
-            Err(_) => todo!(),
-        };
-        Ok(res)
+
+    pub async fn delete_file_at_path(&self, path: &str) -> Result<(), SemanticSearchError> {
+        self.vault.adapter().remove(path.to_string()).await?;
+        Ok(())
     }
 
+    pub async fn check_file_exists_at_path(&self, path: &str) -> Result<bool, SemanticSearchError> {
+        let exists = self.vault.adapter().exists(path.to_string()).await?;
+        Ok(exists.as_bool().expect("DataAdapter exists function did not return boolean"))
+    }
+    
+    async fn process_file(&self, file: obsidian::TFile) -> Result<Vec<(String, String, String)>, SemanticSearchError> {
+        let name = file.name();
+        let text = self.vault.cachedRead(file).await?.as_string().expect("DataAdapter cachedRead did not return a string");
+        let sections = extract_sections(&name, &text)?;
+        Ok(sections)
+    }
 }
 
-fn extract_sections(name: &str, text: &str) -> std::io::Result<Vec<(String, String, String)>> {
+fn extract_sections(name: &str, text: &str) -> Result<Vec<(String, String, String)>, SemanticSearchError> {
     let mut header_to_content: Vec<(String, String, String)> = Vec::new();
     let text = clean_text(text);
     let mut header = "".to_string();

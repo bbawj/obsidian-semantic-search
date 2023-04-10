@@ -85,4 +85,17 @@ impl From<EmbeddingRequestBuilderError> for SemanticSearchError {
 impl std::error::Error for SemanticSearchError {
 }
 
-
+impl Into<wasm_bindgen::JsValue> for SemanticSearchError {
+    fn into(self) -> wasm_bindgen::JsValue {
+        match self {
+            SemanticSearchError::ObsidianError(e) => e,
+            SemanticSearchError::WriteError(e) => JsValue::from_str(&format!("{:?}", e)),
+            SemanticSearchError::ConversionError(e) => JsValue::from_str(&format!("{:?}", e)),
+            SemanticSearchError::ReqwestError(e) => JsValue::from_str(&format!("{:?}", e)),
+            SemanticSearchError::JSONDeserialize(e) => JsValue::from_str(&format!("{:?}", e)),
+            SemanticSearchError::ApiError(e) => JsValue::from_str(&format!("{:?}", e)),
+            SemanticSearchError::InvalidArgument(e) => JsValue::from_str(&format!("{:?}", e)),
+            SemanticSearchError::GetEmbeddingsError(e) => JsValue::from_str(&format!("{:?}", e)),
+        }
+    }
+}

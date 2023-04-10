@@ -16,6 +16,7 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     pub fn apiKey(this: &semanticSearchSettings) -> String;
 
+    #[derive(Clone)]
     pub type App;
 
     #[wasm_bindgen(method, getter)]
@@ -36,6 +37,10 @@ extern "C" {
     pub async fn append(this: &DataAdapter, normalizedPath: String, data: String) -> Result<(), JsValue>;
     #[wasm_bindgen(method, catch)]
     pub async fn read(this: &DataAdapter, normalizedPath: String) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(method, catch)]
+    pub async fn remove(this: &DataAdapter, normalizedPath: String) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(method, catch)]
+    pub async fn exists(this: &DataAdapter, normalizedPath: String) -> Result<JsValue, JsValue>;
 
     pub type TFile;
 
@@ -43,11 +48,22 @@ extern "C" {
     pub fn path(this: &TFile) -> String;
     #[wasm_bindgen(method, getter)]
     pub fn name(this: &TFile) -> String;
-    // #[wasm_bindgen(method, catch)]
-    // pub fn read(this: &TFile) -> Result<JsValue, JsValue>;
 
     pub type Notice;
 
     #[wasm_bindgen(constructor)]
     pub fn new(message: &str) -> Notice;
+}
+
+#[wasm_bindgen(module = "main")]
+extern "C" {
+    pub type GenerateEmbeddingsModal;
+    #[wasm_bindgen(constructor)]
+    pub fn new(app: App) -> GenerateEmbeddingsModal;
+    #[wasm_bindgen(method, getter)]
+    pub fn isConfirmed(this: &GenerateEmbeddingsModal) -> bool;
+    #[wasm_bindgen(method, getter)]
+    pub fn isOpen(this: &GenerateEmbeddingsModal) -> bool;
+    #[wasm_bindgen(method)]
+    pub fn open(this: &GenerateEmbeddingsModal) -> bool;
 }
