@@ -19,3 +19,5 @@ https://user-images.githubusercontent.com/53790951/231014867-ce37c097-3b22-412a-
 
 ## Note
 This plugin is very much experimental at the moment, use it at your own risk. Testing is done on Windows.
+
+Thanks to [Robert's blog post](https://reasonabledeviations.com/2023/02/05/gpt-for-second-brain/?utm_source=pocket_saves) for the idea and inspiration!
