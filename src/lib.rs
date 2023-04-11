@@ -25,8 +25,8 @@ use wasm_bindgen::prelude::*;
 
 use crate::embedding::EmbeddingInput;
 
-const DATA_FILE_PATH: &str = "./input.csv";
-const EMBEDDING_FILE_PATH: &str = "./embedding.csv";
+const DATA_FILE_PATH: &str = "input.csv";
+const EMBEDDING_FILE_PATH: &str = "embedding.csv";
 
 #[wasm_bindgen]
 pub struct GenerateInputCommand {
@@ -63,7 +63,7 @@ impl GenerateInputCommand {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
         }
-        match self.file_processor.write_to_path(data, DATA_FILE_PATH).await {
+        match self.file_processor.write_to_path(DATA_FILE_PATH, &data).await {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
         }
@@ -118,8 +118,7 @@ impl GenerateEmbeddingsCommand {
         }
 
         let data = String::from_utf8(wtr.into_inner()?)?;
-        let adapter = self.file_processor.adapter();
-        adapter.append(EMBEDDING_FILE_PATH.to_string(), data).await?;
+        self.file_processor.write_to_path(EMBEDDING_FILE_PATH, &data).await?;
         debug!("Saved embeddings to {}", EMBEDDING_FILE_PATH);
         Ok(())
     }
@@ -315,8 +314,8 @@ pub fn onload(plugin: &obsidian::Plugin) {
 fn build_prepare_cmd(plugin: &obsidian::Plugin) -> GenerateInputCommand {
     let file_processor = FileProcessor::new(plugin.app().vault());
     GenerateInputCommand {
-        id: JsString::from("generate_input"),
-        name: JsString::from("Generate input"),
+        id: JsString::from("generate-input"),
+        name: JsString::from("Generate Input"),
         file_processor
     }
 }

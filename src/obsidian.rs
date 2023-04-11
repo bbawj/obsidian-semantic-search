@@ -28,20 +28,20 @@ extern "C" {
     pub fn getMarkdownFiles(this: &Vault) -> Vec<TFile>;
     #[wasm_bindgen(method, catch)]
     pub async fn cachedRead(this: &Vault, file: TFile) -> Result<JsValue, JsValue>;
-    #[wasm_bindgen(method, getter)]
-    pub fn adapter(this: &Vault) -> DataAdapter;
+    #[wasm_bindgen(method, catch)]
+    pub async fn append(this: &Vault, file: TFile, data: String) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(method, catch)]
+    pub async fn create(this: &Vault, path: String, data: String) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(method, catch)]
+    pub async fn delete(this: &Vault, file: TFile) -> Result<JsValue, JsValue>;
+    #[wasm_bindgen(method)]
+    pub fn getAbstractFileByPath(this: &Vault, path: String) -> TAbstractFile;
 
-    pub type DataAdapter;
+    #[derive(Debug)]
+    pub type TAbstractFile;
 
-    #[wasm_bindgen(method, catch)]
-    pub async fn append(this: &DataAdapter, normalizedPath: String, data: String) -> Result<(), JsValue>;
-    #[wasm_bindgen(method, catch)]
-    pub async fn read(this: &DataAdapter, normalizedPath: String) -> Result<JsValue, JsValue>;
-    #[wasm_bindgen(method, catch)]
-    pub async fn remove(this: &DataAdapter, normalizedPath: String) -> Result<JsValue, JsValue>;
-    #[wasm_bindgen(method, catch)]
-    pub async fn exists(this: &DataAdapter, normalizedPath: String) -> Result<JsValue, JsValue>;
-
+    #[derive(Debug)]
+    #[wasm_bindgen(extends = TAbstractFile)]
     pub type TFile;
 
     #[wasm_bindgen(method, getter)]

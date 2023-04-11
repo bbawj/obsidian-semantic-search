@@ -1,7 +1,9 @@
+use log::debug;
 use regex::Regex;
 use lazy_static::lazy_static;
+use wasm_bindgen::JsCast;
 
-use crate::obsidian::{DataAdapter, self};
+use crate::obsidian::{self, TFile};
 use crate::SemanticSearchError;
 use crate::obsidian::Vault;
 
@@ -13,17 +15,21 @@ impl FileProcessor {
     pub fn new(vault: Vault) -> Self {
         Self {vault}
     }
-    pub fn adapter(&self) -> DataAdapter {
-        self.vault.adapter()
-    }
 
     pub async fn read_from_path(&self, path: &str) -> Result<String, SemanticSearchError> {
-        let input = self.adapter().read(path.to_string()).await?.as_string().expect("Input csv is not a string");
+        let file: TFile = self.vault.getAbstractFileByPath(path.to_string()).unchecked_into();
+        let input = self.vault.cachedRead(file).await?.as_string().expect("Input csv is not a string");
         Ok(input)
     }
 
-    pub async fn write_to_path(&self, data: String, path: &str) -> Result<(), SemanticSearchError> {
-        self.adapter().append(path.to_string(), data).await?;
+    pub async fn write_to_path(&self, path: &str, data: &str) -> Result<(), SemanticSearchError> {
+        let file: TFile = self.vault.getAbstractFileByPath(path.to_string()).unchecked_into();
+        if file.is_null() {
+            debug!("File: {} does not exist", path);
+            self.vault.create(path.to_string(), data.to_string()).await?;
+            return Ok(());
+        }
+        self.vault.append(file, data.to_string()).await?;
         Ok(())
     }
 
@@ -41,13 +47,17 @@ impl FileProcessor {
     }
 
     pub async fn delete_file_at_path(&self, path: &str) -> Result<(), SemanticSearchError> {
-        self.vault.adapter().remove(path.to_string()).await?;
+        let file: TFile = self.vault.getAbstractFileByPath(path.to_string()).unchecked_into();
+        self.vault.delete(file).await?;
         Ok(())
     }
 
     pub async fn check_file_exists_at_path(&self, path: &str) -> Result<bool, SemanticSearchError> {
-        let exists = self.vault.adapter().exists(path.to_string()).await?;
-        Ok(exists.as_bool().expect("DataAdapter exists function did not return boolean"))
+        let file = self.vault.getAbstractFileByPath(path.to_string());
+        if file.is_null() {
+            return Ok(false);
+        }
+        Ok(true)
     }
     
     async fn process_file(&self, file: obsidian::TFile) -> Result<Vec<(String, String, String)>, SemanticSearchError> {
@@ -257,4 +267,3 @@ Guarantees reliability only if sender is correct
 - BEB3. No creation: No message delivered unless broadcast");
     }
 }
-
