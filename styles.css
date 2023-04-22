@@ -12,6 +12,7 @@ If your plugin does not need CSS, delete this file.
 
 .ss-query-submit-button {
   margin-right: 1rem;
+  align-self: center;
 }
 
 .ss-estimate-container {
