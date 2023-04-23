@@ -25,7 +25,7 @@ impl FileProcessor {
     pub async fn write_to_path(&self, path: &str, data: &str) -> Result<(), SemanticSearchError> {
         let file: TFile = self.vault.getAbstractFileByPath(path.to_string()).unchecked_into();
         if file.is_null() {
-            debug!("File: {} does not exist", path);
+            debug!("File: {} does not exist. Creating it now.", path);
             self.vault.create(path.to_string(), data.to_string()).await?;
             return Ok(());
         }

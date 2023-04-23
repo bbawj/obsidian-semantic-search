@@ -5,6 +5,7 @@ mod error;
 
 use crate::embedding::EmbeddingRequestBuilderError;
 use crate::embedding::EmbeddingRequestBuilder;
+use crate::obsidian::Notice;
 
 use csv::{ReaderBuilder, StringRecord};
 use embedding::EmbeddingRequest;
@@ -67,6 +68,8 @@ impl GenerateInputCommand {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
         }
+
+        Notice::new("Successfully created input.csv");
     }
 }
 
