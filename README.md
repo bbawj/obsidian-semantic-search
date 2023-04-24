@@ -12,7 +12,8 @@ Find what you are looking for based on what you mean. A new file switcher powere
 ## Configuration
 |Setting|Description|
 |-------|-----------|
-|API Key| Your OpenAI API key which can be found [here](https://platform.openai.com/account/api-keys)
+|API Key| Your OpenAI API key which can be found [here](https://platform.openai.com/account/api-keys). This gets stored into `data.json` as per all obsidian plugin settings data so make sure you do not commit this file to a repository.
+|Section Delimeters| The type of heading to use to delimit a file into sections by Generate Input Command. Smaller headers are subsets of bigger headers, e.g. the H1 option will also split sections starting with H2, H3 etc. 
 
 ## Demo
 https://user-images.githubusercontent.com/53790951/231014867-ce37c097-3b22-412a-9b1a-74204b0f167c.mp4
