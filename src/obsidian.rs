@@ -15,6 +15,8 @@ extern "C" {
 
     #[wasm_bindgen(method, getter)]
     pub fn apiKey(this: &semanticSearchSettings) -> String;
+    #[wasm_bindgen(method, getter)]
+    pub fn sectionDelimeters(this: &semanticSearchSettings) -> String;
 
     #[derive(Clone)]
     pub type App;

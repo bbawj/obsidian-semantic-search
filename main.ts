@@ -5,10 +5,12 @@ import * as wasmbin from './pkg/obsidian_rust_plugin_bg.wasm';
 
 interface semanticSearchSettings {
 	apiKey: string;
+  sectionDelimeters: string
 }
 
 const DEFAULT_SETTINGS: semanticSearchSettings = {
-	apiKey: ''
+	apiKey: '',
+  sectionDelimeters: '##'
 }
 
 export default class SemanticSearch extends Plugin {
@@ -349,6 +351,22 @@ class SettingTab extends PluginSettingTab {
 				.setValue(this.plugin.settings.apiKey)
 				.onChange(async (value) => {
 					this.plugin.settings.apiKey = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Section Delimeters')
+			.setDesc('The type of heading to use to delimit a file into sections by Generate Input Command. Smaller headers are subsets of bigger headers, e.g. the H1 option will also split sections starting with H2, H3 etc.')
+			.addDropdown(dropdownComponent => dropdownComponent
+        .addOption("#", "H1: #")
+        .addOption("##", "H2: ##")
+        .addOption("###", "H3: ###")
+        .addOption("####", "H4: ####")
+        .addOption("#####", "H5: #####")
+        .addOption("######", "H6: ######")
+				.setValue(this.plugin.settings.sectionDelimeters)
+				.onChange(async (value) => {
+					this.plugin.settings.sectionDelimeters = value;
 					await this.plugin.saveSettings();
 				}));
 	}

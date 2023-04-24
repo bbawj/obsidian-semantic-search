@@ -2,6 +2,7 @@ mod obsidian;
 mod embedding;
 mod file_processor;
 mod error;
+mod generate_input;
 
 use crate::embedding::EmbeddingRequestBuilderError;
 use crate::embedding::EmbeddingRequestBuilder;
@@ -13,8 +14,9 @@ use embedding::EmbeddingResponse;
 use error::SemanticSearchError;
 use error::WrappedError;
 use file_processor::FileProcessor;
+use generate_input::GenerateInputCommand;
 use js_sys::JsString;
-use log::{debug, error};
+use log::debug;
 use ndarray::Array1;
 use obsidian::App;
 use obsidian::semanticSearchSettings;
@@ -28,50 +30,6 @@ use crate::embedding::EmbeddingInput;
 
 const DATA_FILE_PATH: &str = "input.csv";
 const EMBEDDING_FILE_PATH: &str = "embedding.csv";
-
-#[wasm_bindgen]
-pub struct GenerateInputCommand {
-    id: JsString,
-    name: JsString,
-    file_processor: FileProcessor,
-}
-
-#[wasm_bindgen]
-impl GenerateInputCommand {
-    #[wasm_bindgen(getter)]
-    pub fn id(&self) -> JsString {
-        self.id.clone()
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_id(&mut self, id: &str) {
-        self.id = JsString::from(id)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn name(&self) -> JsString {
-        self.name.clone()
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_name(&mut self, name: &str) {
-        self.name = JsString::from(name)
-    }
-
-    pub async fn callback(&self) {
-        let data = self.file_processor.generate_input().await.expect("failed to generate input.csv");
-        match self.file_processor.delete_file_at_path(DATA_FILE_PATH).await {
-            Ok(()) => (),
-            Err(e) => error!("{:?}", e),
-        }
-        match self.file_processor.write_to_path(DATA_FILE_PATH, &data).await {
-            Ok(()) => (),
-            Err(e) => error!("{:?}", e),
-        }
-
-        Notice::new("Successfully created input.csv");
-    }
-}
 
 #[wasm_bindgen]
 pub struct GenerateEmbeddingsCommand {
@@ -316,9 +274,9 @@ pub fn onload(plugin: &obsidian::Plugin) {
 
 fn build_prepare_cmd(plugin: &obsidian::Plugin) -> GenerateInputCommand {
     let file_processor = FileProcessor::new(plugin.app().vault());
-    GenerateInputCommand {
-        id: JsString::from("generate-input"),
-        name: JsString::from("Generate Input"),
-        file_processor
-    }
+    let id = JsString::from("generate-input");
+    let name = JsString::from("Generate Input");
+    let section_delimeters_setting = JsString::from(plugin.settings().sectionDelimeters());
+
+    return GenerateInputCommand::build(id, name, file_processor, section_delimeters_setting)
 }
