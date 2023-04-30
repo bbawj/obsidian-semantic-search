@@ -1,8 +1,6 @@
 import esbuild from "esbuild";
 import process from "process";
 import builtins from 'builtin-modules'
-import pkg from 'esbuild-plugin-wasm-pack';
-const { wasmPack } = pkg;
 
 const banner =
     `/*
@@ -44,38 +42,34 @@ let wasmPlugin = {
 }
 
 esbuild.build({
-    banner: {
-        js: banner,
-    },
-    entryPoints: ['main.ts'],
-    bundle: true,
-    external: [
-        'obsidian',
-        'electron',
-        '@codemirror/autocomplete',
-        '@codemirror/collab',
-        '@codemirror/commands',
-        '@codemirror/language',
-        '@codemirror/lint',
-        '@codemirror/search',
-        '@codemirror/state',
-        '@codemirror/view',
-        '@lezer/common',
-        '@lezer/highlight',
-        '@lezer/lr',
-        ...builtins],
-    format: 'cjs',
-    watch: !prod,
-    target: 'es2020',
-    logLevel: "info",
-    sourcemap: prod ? false : 'inline',
-    treeShaking: true,
-    outfile: 'main.js',
-    plugins: [
-        wasmPlugin,
-        wasmPack({
-            'target': 'web'
-            // put wasm-pack plugin options
-        }),
-    ],
+  banner: {
+    js: banner,
+  },
+  entryPoints: ['main.ts'],
+  bundle: true,
+  external: [
+    'obsidian',
+    'electron',
+    '@codemirror/autocomplete',
+    '@codemirror/collab',
+    '@codemirror/commands',
+    '@codemirror/language',
+    '@codemirror/lint',
+    '@codemirror/search',
+    '@codemirror/state',
+    '@codemirror/view',
+    '@lezer/common',
+    '@lezer/highlight',
+    '@lezer/lr',
+    ...builtins],
+  format: 'cjs',
+  watch: false,
+  target: 'es2020',
+  logLevel: "info",
+  sourcemap: prod ? false : 'inline',
+  treeShaking: true,
+  outfile: 'main.js',
+  plugins: [
+    wasmPlugin,
+  ],
 }).catch(() => process.exit(1));

@@ -4,8 +4,8 @@
   "version": "0.1.2",
   "main": "main.js",
   "scripts": {
-    "dev": "node esbuild.config.mjs",
-    "build": "tsc -noEmit -skipLibCheck && node esbuild.config.mjs production",
+    "dev": "cargo watch -- yarn run build",
+    "build": "wasm-pack build --target web && node esbuild.config.mjs",
     "version": "node version-bump.mjs && git add manifest.json versions.json"
   },
   "keywords": [],
