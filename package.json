@@ -5,7 +5,7 @@
   "main": "main.js",
   "scripts": {
     "dev": "cargo watch -- yarn run build",
-    "build": "wasm-pack build --target web && node esbuild.config.mjs",
+    "build": "wasm-pack build --target web && node esbuild.config.mjs"
   },
   "keywords": [],
   "author": "",
