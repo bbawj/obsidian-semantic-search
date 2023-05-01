@@ -5,15 +5,17 @@ Find what you are looking for based on what you mean. A new file switcher powere
 ## Commands
 |Command|Description|
 |-------|-----------|
-|Generate Input|Generate input csv based on sections of your notes. Currently, sections are defined as text blocks between headings (does not include H1). Prepared input is saved as `input.csv` in your root folder.
+|Generate Input|Generate input csv based on sections of your notes. Currently, sections are defined as text blocks between headings. Prepared input is saved as `input.csv` in your root folder.
 |Generate Embedding|Obtain embeddings via OpenAI's `text-embedding-ada-002` embedding model (this requires that the generate input command was successfully executed). Generated embeddings is saved as `embedding.csv` in your root folder.
 |Open Query Modal|Semantic search through your notes using generated embeddings.
+|Recommend links using current selection|Uses current editor selection as query input, automatically linking the selection to semantic search suggestions.
 
 ## Configuration
 |Setting|Description|
 |-------|-----------|
 |API Key| Your OpenAI API key which can be found [here](https://platform.openai.com/account/api-keys). This gets stored into `data.json` as per all obsidian plugin settings data so make sure you do not commit this file to a repository.
 |Section Delimeters| The type of heading to use to delimit a file into sections by Generate Input Command. Smaller headers are subsets of bigger headers, e.g. the H1 option will also split sections starting with H2, H3 etc. 
+|Enable link recommendation using `{{}}`| Use `{{}}` as a way to trigger semantic search suggestions for file linking.
 
 ## Demo
 https://user-images.githubusercontent.com/53790951/231014867-ce37c097-3b22-412a-9b1a-74204b0f167c.mp4
@@ -44,7 +46,6 @@ Contributions are welcome!
 1. Clone the repo
 2. cd into the newly created folder and run `yarn install`
 3. Run `yarn run dev`
-4. You will obtain an error message from step 3, this is expected due to the dependency on [obsidian rust template](https://github.com/rachtsingh/obsidian-rust-template) which was used to generate the build tools for developing this plugin with Rust and WASM. To solve it, run `yarn run dev` again.
 
 ## Note
 This plugin is very much experimental at the moment, use it at your own risk. Testing is done on Windows.
