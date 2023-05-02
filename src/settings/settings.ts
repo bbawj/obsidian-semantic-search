@@ -1,5 +1,6 @@
 import SemanticSearch from "main";
 import { App, PluginSettingTab, Setting } from "obsidian";
+import { LinkSuggest } from "src/ui/linkSuggest";
 
 export interface semanticSearchSettings {
 	apiKey: string;
@@ -51,7 +52,7 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
     .setName("Enable link recommendation using {{}}")
-    .setDesc("Typing '{{}}' will generate link recommendations for the text within the braces.")
+    .setDesc("Typing '{{}}' will generate link recommendations for the text within the braces. Requires reload.")
     .addToggle(toggleComponent => toggleComponent
                .setValue(this.plugin.settings.enableLinkRecommendationSuggestor)
                .onChange(async (value) => {

@@ -41,13 +41,16 @@ export default class SemanticSearch extends Plugin {
 			}
 		});
 
-    const linksSuggest = new LinkSuggest(this.app, this.settings);
-    this.registerEditorSuggest(linksSuggest);
+    if (this.settings.enableLinkRecommendationSuggestor) {
+      const linksSuggest = new LinkSuggest(this.app, this.settings);
+      this.registerEditorSuggest(linksSuggest);
+    }
 
     this.registerEvent(
       this.app.workspace.on("editor-menu", (menu: Menu, editor: Editor) => {
         menu.addItem((item) => {
           item.setTitle(linkSuggestQueryCommand.name)
+          .setIcon('file-search-2')
           .onClick(() => {
             //@ts-ignore
             this.app.commands.executeCommandById(linkSuggestQueryCommand.id);
