@@ -8,7 +8,7 @@ Find what you are looking for based on what you mean. A new file switcher powere
 |Generate Input|Generate input csv based on sections of your notes. Currently, sections are defined as text blocks between headings. Prepared input is saved as `input.csv` in your root folder.
 |Generate Embedding|Obtain embeddings via OpenAI's `text-embedding-ada-002` embedding model (this requires that the generate input command was successfully executed). Generated embeddings is saved as `embedding.csv` in your root folder.
 |Open Query Modal|Semantic search through your notes using generated embeddings.
-|Recommend links using current selection|Uses current editor selection as query input, automatically creating a markdown link with your choice.
+|Recommend links using current selection|Uses current editor selection as query input, automatically creating a markdown link with your choice. Can also be triggered in the context menu using the mouse right-click.
 
 ## Configuration
 |Setting|Description|
