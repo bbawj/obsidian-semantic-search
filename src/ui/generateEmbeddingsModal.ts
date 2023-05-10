@@ -32,8 +32,13 @@ export class GenerateEmbeddingsModal extends Modal {
      const confirm_button = contentEl.createEl("button", {text: "Generate Embeddings"})
      confirm_button.onclick = async () => {
        this.close();
-       await this.wasmGenerateEmbeddingsCommand.get_embeddings();
-       new Notice("Successfully generated embeddings in 'embedding.csv'");
+       try {
+         await this.wasmGenerateEmbeddingsCommand.get_embeddings();
+         new Notice("Successfully generated embeddings in 'embedding.csv'");
+       } catch (error) {
+         console.error(error);
+         new Notice("Failed to create embeddings. Error: ", error);
+       }
      }
   }
 
