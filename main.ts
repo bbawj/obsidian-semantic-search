@@ -73,7 +73,8 @@ export default class SemanticSearch extends Plugin {
 	async loadSettings() {
     const DEFAULT_SETTINGS: semanticSearchSettings = {
       apiKey: '',
-      sectionDelimeters: '##',
+      ignoredFolders: "",
+      sectionDelimeters: '.',
       enableLinkRecommendationSuggestor: false
     }
 

@@ -4,7 +4,6 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Serialize, Clone)]
 #[serde(untagged)]
 pub enum EmbeddingInput {
-    String(String),
     StringArray(Vec<String>),
 }
 
@@ -16,13 +15,19 @@ impl Default for EmbeddingInput {
 
 impl From<String> for EmbeddingInput {
     fn from(value: String) -> Self {
-        EmbeddingInput::String(value)
+        EmbeddingInput::StringArray(vec![value])
     }
 }
 
 impl From<Vec<String>> for EmbeddingInput {
     fn from(value: Vec<String>) -> Self {
         EmbeddingInput::StringArray(value)
+    }
+}
+
+impl From<&[String]> for EmbeddingInput {
+    fn from(value: &[String]) -> Self {
+        EmbeddingInput::StringArray(value.to_vec())
     }
 }
 

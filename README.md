@@ -14,7 +14,7 @@ Find what you are looking for based on what you mean. A new file switcher powere
 |Setting|Description|
 |-------|-----------|
 |API Key| Your OpenAI API key which can be found [here](https://platform.openai.com/account/api-keys). This gets stored into `data.json` as per all obsidian plugin settings data so make sure you do not commit this file to a repository.
-|Section Delimeters| The type of heading to use to delimit a file into sections by Generate Input Command. Smaller headers are subsets of bigger headers, e.g. the H1 option will also split sections starting with H2, H3 etc. 
+|Section Delimeters| Regex used to determine if the current line is the start of a new section. Sections are used to group related content together. Defaults to '.', meaning every line starts a new section. E.g. matching every heading: '^#{1,6}'
 |Enable link recommendation using `{{}}`| Use `{{}}` as a way to trigger semantic search suggestions for file linking.
 
 ## Demo

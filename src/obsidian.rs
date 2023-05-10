@@ -16,6 +16,8 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     pub fn apiKey(this: &semanticSearchSettings) -> String;
     #[wasm_bindgen(method, getter)]
+    pub fn ignoredFolders(this: &semanticSearchSettings) -> String;
+    #[wasm_bindgen(method, getter)]
     pub fn sectionDelimeters(this: &semanticSearchSettings) -> String;
 
     #[derive(Clone)]
@@ -26,6 +28,8 @@ extern "C" {
 
     pub type Vault;
 
+    #[wasm_bindgen(method)]
+    pub fn getRoot(this: &Vault) -> TFolder;
     #[wasm_bindgen(method)]
     pub fn getMarkdownFiles(this: &Vault) -> Vec<TFile>;
     #[wasm_bindgen(method, catch)]
@@ -50,6 +54,17 @@ extern "C" {
     pub fn path(this: &TFile) -> String;
     #[wasm_bindgen(method, getter)]
     pub fn name(this: &TFile) -> String;
+    #[wasm_bindgen(method, getter)]
+    pub fn extension(this: &TFile) -> String;
+
+    #[derive(Debug)]
+    #[wasm_bindgen(extends = TAbstractFile)]
+    pub type TFolder;
+    #[wasm_bindgen(method, getter)]
+    pub fn path(this: &TFolder) -> String;
+
+    #[wasm_bindgen(method, getter)]
+    pub fn children(this: &TFolder) -> Vec<TAbstractFile>;
 
     pub type Notice;
 

@@ -50,36 +50,56 @@ impl GenerateEmbeddingsCommand {
         self.file_processor.delete_file_at_path(EMBEDDING_FILE_PATH).await?;
         let input = self.file_processor.read_from_path(DATA_FILE_PATH).await?;
         let string_records = self.get_content_to_embed(input.clone())?;
-        let request = self.client.create_embedding_request(string_records.into())?;
-        let response = self.client.post_embedding_request(&request).await?;
-        debug!("Sucessfully obtained {} embeddings", response.data.len());
+        debug!("Found {} records.", string_records.len());
 
-        let filename_header = self.get_filename_header(input.clone())?;
-        let mut wtr = csv::Writer::from_writer(vec![]);
-        match request.input {
-            EmbeddingInput::StringArray(arr) => {
-                for (i, input) in arr.iter().enumerate() {
-                    let filename_header = match filename_header.get(i) {
-                        None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching filename and header for input index {}", i)).into()),
-                        Some(filename_header) => filename_header
-                    };
-                    let filename = &filename_header.0;
-                    let header = &filename_header.1;
-                    let embedding = match &response.data.get(i) {
-                        None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching embedding for filename: {}, header: {}", filename, header)).into()),
-                        Some(embedding) => {
-                            let vec: Vec<String> = embedding.embedding.clone().into_iter().map(|f| f.to_string()).collect();
-                            vec.join(",")
-                        }
-                    };
-                    wtr.write_record(&[filename, header, &embedding])?;
+        let mut num_processed = 0;
+        let num_batches = 2;
+        let mut batch = 1;
+        let num_records = string_records.len();
+        let batch_size = (num_records as f64 / 2.0).ceil() as usize;
+
+        while batch <= num_batches {
+            let num_to_process = if num_processed + batch_size > num_records {
+                num_records - num_processed
+            } else {
+                batch_size
+            };
+            let records = &string_records[num_processed..num_processed + num_to_process];
+            debug!("Processing batch {}: {} to {}", batch, num_processed, num_processed + num_to_process);
+            num_processed += batch_size;
+            batch += 1;
+
+            let request = self.client.create_embedding_request(records.into())?;
+            let response = self.client.post_embedding_request(&request).await?;
+            debug!("Sucessfully obtained {} embeddings", response.data.len());
+
+            let filename_body = self.get_filename_body(input.clone())?;
+            let mut wtr = csv::Writer::from_writer(vec![]);
+            match request.input {
+                EmbeddingInput::StringArray(arr) => {
+                    for (i, _) in arr.iter().enumerate() {
+                        let filename_header = match filename_body.get(i) {
+                            None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching filename and header for input index {}", i)).into()),
+                            Some(filename_header) => filename_header
+                        };
+                        let filename = &filename_header.0;
+                        let header = &filename_header.1;
+                        let embedding = match &response.data.get(i) {
+                            None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching embedding for filename: {}, header: {}", filename, header)).into()),
+                            Some(embedding) => {
+                                let vec: Vec<String> = embedding.embedding.clone().into_iter().map(|f| f.to_string()).collect();
+                                vec.join(",")
+                            }
+                        };
+                        wtr.write_record(&[filename, header, &embedding])?;
+                    }
                 }
             }
-            EmbeddingInput::String(_) => unreachable!()
-        }
 
-        let data = String::from_utf8(wtr.into_inner()?)?;
-        self.file_processor.write_to_path(EMBEDDING_FILE_PATH, &data).await?;
+            let data = String::from_utf8(wtr.into_inner()?)?;
+            self.file_processor.write_to_path(EMBEDDING_FILE_PATH, &data).await?;
+        }
+        
         debug!("Saved embeddings to {}", EMBEDDING_FILE_PATH);
         Ok(())
     }
@@ -102,21 +122,19 @@ impl GenerateEmbeddingsCommand {
             .from_reader(input.as_bytes());
         let records = reader.records().collect::<Result<Vec<StringRecord>, csv::Error>>()?;
         let string_records = records.iter().map(|record| {
-            let mut s = format!("{}. {}", record.get(1).unwrap(), record.get(2).unwrap());
-            s.truncate(MAX_TOKEN_LENGTH);
-            s
+            record.get(2).unwrap().to_string()
         }).collect();
         Ok(string_records)
     }
 
-    fn get_filename_header(&self, input: String) -> Result<Vec<(String, String)>, SemanticSearchError> {
+    fn get_filename_body(&self, input: String) -> Result<Vec<(String, String)>, SemanticSearchError> {
         let mut reader = ReaderBuilder::new().trim(csv::Trim::All).flexible(false)
             .from_reader(input.as_bytes());
         let records = reader.records().collect::<Result<Vec<StringRecord>, csv::Error>>()?;
-        let filename_header = records.iter().map(|record| 
-                           (record.get(0).unwrap().to_string(), record.get(1).unwrap().to_string())
+        let filename_body = records.iter().map(|record| 
+                           (record.get(0).unwrap().to_string(), record.get(2).unwrap().to_string())
                           ).collect();
-        Ok(filename_header)
+        Ok(filename_body)
     }
 }
 
@@ -196,8 +214,6 @@ pub struct Client {
 pub const API_BASE: &str = "https://api.openai.com/v1";
 /// Name for organization header
 pub const ORGANIZATION_HEADER: &str = "OpenAI-Organization";
-/// Maximum token length
-pub const MAX_TOKEN_LENGTH: usize = 8192;
 
 impl Client {
     pub fn api_base(&self) -> &str {
@@ -276,7 +292,8 @@ fn build_prepare_cmd(plugin: &obsidian::Plugin) -> GenerateInputCommand {
     let file_processor = FileProcessor::new(plugin.app().vault());
     let id = JsString::from("generate-input");
     let name = JsString::from("Generate Input");
+    let ignored_folders_setting = JsString::from(plugin.settings().ignoredFolders());
     let section_delimeters_setting = JsString::from(plugin.settings().sectionDelimeters());
 
-    return GenerateInputCommand::build(id, name, file_processor, section_delimeters_setting)
+    return GenerateInputCommand::build(id, name, file_processor, ignored_folders_setting, section_delimeters_setting)
 }

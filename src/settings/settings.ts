@@ -1,9 +1,9 @@
 import SemanticSearch from "main";
 import { App, PluginSettingTab, Setting } from "obsidian";
-import { LinkSuggest } from "src/ui/linkSuggest";
 
 export interface semanticSearchSettings {
 	apiKey: string;
+  ignoredFolders: string;
   sectionDelimeters: string;
   enableLinkRecommendationSuggestor: boolean;
 }
@@ -35,18 +35,23 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 				}));
 
 		new Setting(containerEl)
-			.setName('Section Delimeters')
-			.setDesc('The type of heading to use to delimit a file into sections by Generate Input Command. Smaller headers are subsets of bigger headers, e.g. the H1 option will also split sections starting with H2, H3 etc.')
-			.addDropdown(dropdownComponent => dropdownComponent
-        .addOption("#", "H1: #")
-        .addOption("##", "H2: ##")
-        .addOption("###", "H3: ###")
-        .addOption("####", "H4: ####")
-        .addOption("#####", "H5: #####")
-        .addOption("######", "H6: ######")
+			.setName('Section Header Delimeter Regex')
+			.setDesc("Regex used to determine if the current line is the start of a new section. Sections are used to group related content together. \
+               Defaults to '.', meaning every line starts a new section. E.g. matching every heading: '^#{1,6}'. Requires reload.")
+			.addText(text => text
 				.setValue(this.plugin.settings.sectionDelimeters)
 				.onChange(async (value) => {
 					this.plugin.settings.sectionDelimeters = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('Folders to ignore')
+			.setDesc('Folders to ignore when generating input. Enter folder paths separated by newlines. Requires reload.')
+			.addTextArea(text => text
+				.setValue(this.plugin.settings.ignoredFolders)
+				.onChange(async (value) => {
+					this.plugin.settings.ignoredFolders = value;
 					await this.plugin.saveSettings();
 				}));
 

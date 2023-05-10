@@ -1,9 +1,11 @@
+use js_sys::JsString;
 use log::debug;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
 
 use crate::obsidian::TFile;
 use crate::SemanticSearchError;
+use crate::obsidian::TFolder;
 use crate::obsidian::Vault;
 
 #[wasm_bindgen]
@@ -52,7 +54,33 @@ impl FileProcessor {
         Ok(true)
     }
 
-    pub fn get_vault_markdown_files(&self) -> Vec<TFile> {
-        return self.vault.getMarkdownFiles();
+    pub fn get_vault_markdown_files(&self, ignored_folders_setting: JsString) -> Vec<TFile> {
+        let binding = ignored_folders_setting.as_string().expect("Ignored folders setting to be a string value");
+        let root = self.vault.getRoot();
+        let ignored_folders: Vec<String> = binding.split("\n").map(|x| x.to_string()).collect();
+        debug!("{:?}", &ignored_folders);
+    
+        return self.search_for_markdown_files(root, &ignored_folders);
+    }
+
+    fn search_for_markdown_files(&self, root: TFolder, ignored_folders: &Vec<String>) -> Vec<TFile> {
+        let mut markdown_files: Vec<TFile> = Vec::new();
+
+        for child in root.children() {
+            if child.has_type::<TFolder>() {
+                let folder = child.dyn_into::<TFolder>().expect("Folder should have TFolder type");
+                if ignored_folders.contains(&folder.path()) {
+                    continue;
+                }
+                markdown_files.extend(self.search_for_markdown_files(folder, &ignored_folders));
+            } else {
+                let file = child.dyn_into::<TFile>().expect("File should have TFile type");
+                if file.extension() == "md" {
+                    markdown_files.push(file);
+                }
+            }
+        }
+
+        return markdown_files;
     }
 }
