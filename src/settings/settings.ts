@@ -23,6 +23,7 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl('h2', {text: 'Obsidian Semantic Search'});
+		containerEl.createEl('p', {text: 'Note: all settings currently require a reload.'});
 
 		new Setting(containerEl)
 			.setName('OpenAI API Key')
@@ -38,7 +39,7 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 		new Setting(containerEl)
 			.setName('Section Header Delimeter Regex')
 			.setDesc("Regex used to determine if the current line is the start of a new section. Sections are used to group related content together. \
-               Defaults to '.', meaning every line starts a new section. E.g. matching every heading: '^#{1,6}'. Requires reload.")
+               Defaults to '.', meaning every line starts a new section. E.g. matching every heading: '^#{1,6}'.")
 			.addText(text => text
 				.setValue(this.plugin.settings.sectionDelimeterRegex)
 				.onChange(async (value) => {
@@ -48,7 +49,7 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 
 		new Setting(containerEl)
 			.setName('Folders to ignore')
-			.setDesc('Folders to ignore when generating input. Enter folder paths separated by newlines. Requires reload.')
+			.setDesc('Folders to ignore when generating input. Enter folder paths separated by newlines.')
 			.addTextArea(text => text
 				.setValue(this.plugin.settings.ignoredFolders)
 				.onChange(async (value) => {
@@ -71,7 +72,7 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
     .setName("Enable link recommendation using {{}}")
-    .setDesc("Typing '{{}}' will generate link recommendations for the text within the braces. Requires reload.")
+    .setDesc("Typing '{{}}' will generate link recommendations for the text within the braces.")
     .addToggle(toggleComponent => toggleComponent
                .setValue(this.plugin.settings.enableLinkRecommendationSuggestor)
                .onChange(async (value) => {
