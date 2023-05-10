@@ -1,4 +1,4 @@
-import { App, Editor, getLinkpath, Modal, normalizePath, Notice, OpenViewState, PaneType, renderResults, SearchResult, setIcon, SplitDirection, TFile, WorkspaceLeaf } from "obsidian";
+import { App, Editor, EditorPosition, getLinkpath, Modal, normalizePath, Notice, OpenViewState, PaneType, renderResults, SearchResult, setIcon, SplitDirection, TFile, WorkspaceLeaf } from "obsidian";
 import { semanticSearchSettings } from "src/settings/settings";
 import { Suggestion, WASMSuggestion } from "./suggestion";
 
@@ -65,10 +65,10 @@ export class QueryModal extends Modal {
   // Returns all available suggestions.
   async getSuggestions(query: string): Promise<Suggestion[]> {
     const wasmSuggestions: WASMSuggestion[] = await plugin.get_suggestions(this.app, this.settings.apiKey, query);
-    const suggestions: Suggestion[] = wasmSuggestions.map(wasmSuggestion => new Suggestion(this.app, wasmSuggestion));
+    const suggestions: Suggestion[] = wasmSuggestions.map(wasmSuggestion => new Suggestion(this.app, wasmSuggestion, this.settings.sectionDelimeters));
 
-    suggestions.forEach(suggestion => {
-      suggestion.addSuggestionFile().addSuggestionHeading();
+    suggestions.forEach(async suggestion => {
+      await suggestion.addSuggestionFile().addSuggestionHeading();
     })
 
     return suggestions;
