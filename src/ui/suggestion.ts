@@ -1,5 +1,4 @@
-import { App, EditorPosition, fuzzySearch, Loc, Pos, PreparedQuery, prepareFuzzySearch, prepareQuery, prepareSimpleSearch, SearchMatchPart, SearchResult, SectionCache, TFile } from "obsidian";
-import { obsidianSearchAsync } from "./search";
+import { App, Loc, Pos, SearchMatchPart, SearchResult, TFile } from "obsidian";
 import Fuse from 'fuse.js';
 
 export type WASMSuggestion = {
