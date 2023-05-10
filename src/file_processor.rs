@@ -58,7 +58,7 @@ impl FileProcessor {
         let binding = ignored_folders_setting.as_string().expect("Ignored folders setting to be a string value");
         let root = self.vault.getRoot();
         let ignored_folders: Vec<String> = binding.split("\n").map(|x| x.to_string()).collect();
-        debug!("{:?}", &ignored_folders);
+        debug!("Ignored folders: {:?}", &ignored_folders);
     
         return self.search_for_markdown_files(root, &ignored_folders);
     }

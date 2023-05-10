@@ -35,6 +35,7 @@ const EMBEDDING_FILE_PATH: &str = "embedding.csv";
 pub struct GenerateEmbeddingsCommand {
     file_processor: FileProcessor,
     client: Client,
+    num_batches: u32,
 }
 
 #[wasm_bindgen]
@@ -43,7 +44,8 @@ impl GenerateEmbeddingsCommand {
     pub fn new(app: App, settings: semanticSearchSettings) -> GenerateEmbeddingsCommand {
         let file_processor = FileProcessor::new(app.vault());
         let client = Client::new(settings.apiKey());
-        GenerateEmbeddingsCommand { file_processor, client }
+        let num_batches = settings.numBatches();
+        GenerateEmbeddingsCommand { file_processor, client, num_batches }
     }
 
     pub async fn get_embeddings(&self) -> Result<(), SemanticSearchError> {
@@ -53,7 +55,7 @@ impl GenerateEmbeddingsCommand {
         debug!("Found {} records.", string_records.len());
 
         let mut num_processed = 0;
-        let num_batches = 2;
+        let num_batches = self.num_batches;
         let mut batch = 1;
         let num_records = string_records.len();
         let batch_size = (num_records as f64 / 2.0).ceil() as usize;
@@ -66,8 +68,6 @@ impl GenerateEmbeddingsCommand {
             };
             let records = &string_records[num_processed..num_processed + num_to_process];
             debug!("Processing batch {}: {} to {}", batch, num_processed, num_processed + num_to_process);
-            num_processed += batch_size;
-            batch += 1;
 
             let request = self.client.create_embedding_request(records.into())?;
             let response = self.client.post_embedding_request(&request).await?;
@@ -78,7 +78,8 @@ impl GenerateEmbeddingsCommand {
             match request.input {
                 EmbeddingInput::StringArray(arr) => {
                     for (i, _) in arr.iter().enumerate() {
-                        let filename_header = match filename_body.get(i) {
+                        let record_idx = num_processed + i;
+                        let filename_header = match filename_body.get(record_idx) {
                             None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching filename and header for input index {}", i)).into()),
                             Some(filename_header) => filename_header
                         };
@@ -98,6 +99,8 @@ impl GenerateEmbeddingsCommand {
 
             let data = String::from_utf8(wtr.into_inner()?)?;
             self.file_processor.write_to_path(EMBEDDING_FILE_PATH, &data).await?;
+            num_processed += num_to_process;
+            batch += 1;
         }
         
         debug!("Saved embeddings to {}", EMBEDDING_FILE_PATH);

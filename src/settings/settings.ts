@@ -4,7 +4,8 @@ import { App, PluginSettingTab, Setting } from "obsidian";
 export interface semanticSearchSettings {
 	apiKey: string;
   ignoredFolders: string;
-  sectionDelimeters: string;
+  sectionDelimeterRegex: string;
+  numBatches: number;
   enableLinkRecommendationSuggestor: boolean;
 }
 
@@ -39,9 +40,9 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 			.setDesc("Regex used to determine if the current line is the start of a new section. Sections are used to group related content together. \
                Defaults to '.', meaning every line starts a new section. E.g. matching every heading: '^#{1,6}'. Requires reload.")
 			.addText(text => text
-				.setValue(this.plugin.settings.sectionDelimeters)
+				.setValue(this.plugin.settings.sectionDelimeterRegex)
 				.onChange(async (value) => {
-					this.plugin.settings.sectionDelimeters = value;
+					this.plugin.settings.sectionDelimeterRegex = value;
 					await this.plugin.saveSettings();
 				}));
 
@@ -54,6 +55,19 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 					this.plugin.settings.ignoredFolders = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Number of batches')
+			.setDesc("Number of batches used to call OpenAI's endpoint. If you have lots of data, and are facing invalid request errors, try increasing this number.")
+			.addSlider(slider => slider
+				.setValue(this.plugin.settings.numBatches)
+				.onChange(async (value) => {
+					this.plugin.settings.numBatches = value;
+					await this.plugin.saveSettings();
+        })
+        .setLimits(1, 100, 1)
+        .setDynamicTooltip()
+        .showTooltip());
 
     new Setting(containerEl)
     .setName("Enable link recommendation using {{}}")

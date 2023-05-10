@@ -87,8 +87,7 @@ fn extract_sections(name: &str, text: &str, delimeter: &str) -> Result<Vec<(Stri
     let re = match Regex::new(delimeter) {
         Ok(r) => r,
         Err(_) => {
-            println!("Invalid regex used, defaulting to empty string");
-            Notice::new("Invalid regex used, defaulting to empty string");
+            Notice::new("Invalid regex used, defaulting to '.'");
             Regex::new(".").unwrap()
         },
     };
