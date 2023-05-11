@@ -1,5 +1,5 @@
 import SemanticSearch from "main";
-import { App, PluginSettingTab, Setting } from "obsidian";
+import { App, PluginSettingTab, Setting, TextComponent } from "obsidian";
 
 export interface semanticSearchSettings {
 	apiKey: string;
@@ -36,16 +36,40 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 
+    const presetRegexes: Record<string, string> = {
+      ".": "Match every line",
+      "^#{1,6} ": "Match every heading",
+      "^# ": "Match H1",
+      "^## ": "Match H2",
+      "^### ": "Match H3",
+      "^#### ": "Match H4",
+      "^##### ": "Match H5",
+      "^###### ": "Match H6",
+    }
+
+    let sectionDelimeterRegexInput: TextComponent;
+
 		new Setting(containerEl)
 			.setName('Section Header Delimeter Regex')
-			.setDesc("Regex used to determine if the current line is the start of a new section. Sections are used to group related content together. \
-               Defaults to '.', meaning every line starts a new section. E.g. matching every heading: '^#{1,6}'.")
-			.addText(text => text
-				.setValue(this.plugin.settings.sectionDelimeterRegex)
-				.onChange(async (value) => {
-					this.plugin.settings.sectionDelimeterRegex = value;
-					await this.plugin.saveSettings();
-				}));
+			.setDesc("Regex sed to determine if the current line is the start of a new section. Sections are used to group related content together. \
+               Defaults to '.', meaning every line starts a new section. Common presets are also available under the dropdown menu.")
+			.addText(text => {
+        sectionDelimeterRegexInput = text;
+        return text
+        .setValue(this.plugin.settings.sectionDelimeterRegex)
+        .onChange(async (value) => {
+          this.plugin.settings.sectionDelimeterRegex = value;
+          await this.plugin.saveSettings();
+				})})
+      .addDropdown(dropdown => dropdown
+        .addOption("", "Available Presets")
+        .addOptions(presetRegexes)
+        .setValue(this.plugin.settings.sectionDelimeterRegex in presetRegexes ? this.plugin.settings.sectionDelimeterRegex : "")
+        .onChange(async (value) => {
+          sectionDelimeterRegexInput.setValue(value);
+          this.plugin.settings.sectionDelimeterRegex = value;
+          await this.plugin.saveSettings();
+      }));
 
 		new Setting(containerEl)
 			.setName('Folders to ignore')
