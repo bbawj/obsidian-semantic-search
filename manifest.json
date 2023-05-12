@@ -1,7 +1,7 @@
 {
   "id": "bbawj-semantic-search",
   "name": "Semantic Search",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "minAppVersion": "1.0.0",
   "description": "Semantic search for files using OpenAI's text embeddings",
   "author": "bbawj",
