@@ -1,4 +1,3 @@
-use js_sys::JsString;
 use log::debug;
 use wasm_bindgen::JsCast;
 use wasm_bindgen::prelude::*;
@@ -54,10 +53,9 @@ impl FileProcessor {
         Ok(true)
     }
 
-    pub fn get_vault_markdown_files(&self, ignored_folders_setting: JsString) -> Vec<TFile> {
-        let binding = ignored_folders_setting.as_string().expect("Ignored folders setting to be a string value");
+    pub fn get_vault_markdown_files(&self, ignored_folders_setting: String) -> Vec<TFile> {
         let root = self.vault.getRoot();
-        let ignored_folders: Vec<String> = binding.split("\n").map(|x| x.to_string()).collect();
+        let ignored_folders: Vec<String> = ignored_folders_setting.split("\n").map(|x| x.to_string()).collect();
         debug!("Ignored folders: {:?}", &ignored_folders);
     
         return self.search_for_markdown_files(root, &ignored_folders);

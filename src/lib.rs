@@ -286,17 +286,5 @@ impl Client {
 #[wasm_bindgen]
 pub fn onload(plugin: &obsidian::Plugin) {
     console_log::init_with_level(log::Level::Debug).expect("");
-    let generate_input_cmd = build_prepare_cmd(plugin);
-    plugin.addCommand(JsValue::from(generate_input_cmd));
     debug!("Semantic Search Loaded!");
-}
-
-fn build_prepare_cmd(plugin: &obsidian::Plugin) -> GenerateInputCommand {
-    let file_processor = FileProcessor::new(plugin.app().vault());
-    let id = JsString::from("generate-input");
-    let name = JsString::from("Generate Input");
-    let ignored_folders_setting = JsString::from(plugin.settings().ignoredFolders());
-    let section_delimeters_setting = JsString::from(plugin.settings().sectionDelimeters());
-
-    return GenerateInputCommand::build(id, name, file_processor, ignored_folders_setting, section_delimeters_setting)
 }

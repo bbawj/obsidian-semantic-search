@@ -18,7 +18,7 @@ extern "C" {
     #[wasm_bindgen(method, getter)]
     pub fn ignoredFolders(this: &semanticSearchSettings) -> String;
     #[wasm_bindgen(method, getter)]
-    pub fn sectionDelimeters(this: &semanticSearchSettings) -> String;
+    pub fn sectionDelimeterRegex(this: &semanticSearchSettings) -> String;
     #[wasm_bindgen(method, getter)]
     pub fn numBatches(this: &semanticSearchSettings) -> u32;
 

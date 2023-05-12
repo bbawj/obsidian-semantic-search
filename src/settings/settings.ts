@@ -23,7 +23,6 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 		containerEl.empty();
 
 		containerEl.createEl('h2', {text: 'Obsidian Semantic Search'});
-		containerEl.createEl('p', {text: 'Note: all settings currently require a reload.'});
 
 		new Setting(containerEl)
 			.setName('OpenAI API Key')
@@ -96,7 +95,7 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
     .setName("Enable link recommendation using {{}}")
-    .setDesc("Typing '{{}}' will generate link recommendations for the text within the braces.")
+    .setDesc("Typing '{{}}' will generate link recommendations for the text within the braces (requires reload).")
     .addToggle(toggleComponent => toggleComponent
                .setValue(this.plugin.settings.enableLinkRecommendationSuggestor)
                .onChange(async (value) => {

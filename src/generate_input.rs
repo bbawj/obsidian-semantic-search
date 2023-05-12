@@ -10,40 +10,25 @@ use crate::SemanticSearchError;
 use crate::Notice;
 use crate::DATA_FILE_PATH;
 use crate::obsidian;
+use crate::obsidian::App;
+use crate::obsidian::semanticSearchSettings;
 
 #[wasm_bindgen]
 pub struct GenerateInputCommand {
-    id: JsString,
-    name: JsString,
     file_processor: FileProcessor,
-    ignored_folders: JsString,
-    section_delimeter: JsString,
+    ignored_folders: String,
+    section_delimeter_regex: String,
 }
 
 #[wasm_bindgen]
 impl GenerateInputCommand {
-    pub fn build(id: JsString, name: JsString, file_processor: FileProcessor, ignored_folders: JsString, section_delimeter: JsString) -> GenerateInputCommand {
-        return GenerateInputCommand { id, name, file_processor, ignored_folders, section_delimeter }
-    }
+    #[wasm_bindgen(constructor)]
+    pub fn new(app: App, settings: semanticSearchSettings) -> GenerateInputCommand {
+        let file_processor = FileProcessor::new(app.vault());
+        let ignored_folders = settings.ignoredFolders();
+        let section_delimeter_regex = settings.sectionDelimeterRegex();
 
-    #[wasm_bindgen(getter)]
-    pub fn id(&self) -> JsString {
-        self.id.clone()
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_id(&mut self, id: &str) {
-        self.id = JsString::from(id)
-    }
-
-    #[wasm_bindgen(getter)]
-    pub fn name(&self) -> JsString {
-        self.name.clone()
-    }
-
-    #[wasm_bindgen(setter)]
-    pub fn set_name(&mut self, name: &str) {
-        self.name = JsString::from(name)
+        GenerateInputCommand { file_processor, ignored_folders, section_delimeter_regex}
     }
 
     pub async fn callback(&self) {
@@ -76,7 +61,7 @@ impl GenerateInputCommand {
     async fn process_file(&self, file: obsidian::TFile) -> Result<Vec<(String, String, String)>, SemanticSearchError> {
         let name = file.name();
         let text = self.file_processor.read_from_file(file).await?;
-        let sections = extract_sections(&name, &text, &self.section_delimeter.as_string().unwrap())?;
+        let sections = extract_sections(&name, &text, &self.section_delimeter_regex)?;
         Ok(sections)
     }
 }

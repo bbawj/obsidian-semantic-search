@@ -1,4 +1,4 @@
-import { Editor, MarkdownView, Menu, Plugin } from 'obsidian';
+import { Editor, MarkdownView, Menu, Notice, Plugin } from 'obsidian';
 import { semanticSearchSettings, SemanticSearchSettingTab } from 'src/settings/settings';
 import { GenerateEmbeddingsModal } from 'src/ui/generateEmbeddingsModal';
 import { LinkSuggest } from 'src/ui/linkSuggest';
@@ -30,6 +30,19 @@ export default class SemanticSearch extends Plugin {
 			name: 'Recommend links using current selection',
 			editorCallback: (editor: Editor, view: MarkdownView) => {
 				new LinkSuggestQueryModal(this.app, this.settings, editor).open();
+			}
+		});
+
+		this.addCommand({
+			id: 'generate-input',
+			name: 'Generate Input',
+			callback: () => {
+        try {
+          new plugin.GenerateInputCommand(this.app, this.settings).callback();
+        } catch (error) {
+          new Notice("Failed to generate input");
+          console.error(error);
+        }
 			}
 		});
 
