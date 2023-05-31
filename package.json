@@ -1,7 +1,7 @@
 {
   "name": "obsidian-semantic-search",
   "description": "Semantic search for files using GPT Embeddings",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "main": "main.js",
   "scripts": {
     "dev": "cargo watch -- yarn run build",
