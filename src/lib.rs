@@ -14,7 +14,6 @@ use embedding::EmbeddingResponse;
 use error::SemanticSearchError;
 use error::WrappedError;
 use file_processor::FileProcessor;
-use generate_input::GenerateInputCommand;
 use js_sys::JsString;
 use log::debug;
 use ndarray::Array1;
@@ -52,20 +51,21 @@ impl GenerateEmbeddingsCommand {
         self.file_processor.delete_file_at_path(EMBEDDING_FILE_PATH).await?;
         let input = self.file_processor.read_from_path(DATA_FILE_PATH).await?;
         let string_records = self.get_content_to_embed(input.clone())?;
-        debug!("Found {} records.", string_records.len());
 
         let mut num_processed = 0;
         let num_batches = self.num_batches;
         let mut batch = 1;
         let num_records = string_records.len();
-        let batch_size = (num_records as f64 / 2.0).ceil() as usize;
+        debug!("Found {} records.", num_records);
+        let batch_size = (num_records as f64 / num_batches as f64).ceil() as usize;
 
-        while batch <= num_batches {
-            let num_to_process = if num_processed + batch_size > num_records {
+        while num_processed < num_records {
+            let num_to_process = if batch == num_batches {
                 num_records - num_processed
             } else {
                 batch_size
             };
+
             let records = &string_records[num_processed..num_processed + num_to_process];
             debug!("Processing batch {}: {} to {}", batch, num_processed, num_processed + num_to_process);
 
