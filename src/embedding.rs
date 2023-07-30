@@ -1,6 +1,8 @@
 use derive_builder::Builder;
 use serde::{Deserialize, Serialize};
 
+use crate::file_processor::InputRow;
+
 #[derive(Debug, Serialize, Clone)]
 #[serde(untagged)]
 pub enum EmbeddingInput {
@@ -28,6 +30,24 @@ impl From<Vec<String>> for EmbeddingInput {
 impl From<&[String]> for EmbeddingInput {
     fn from(value: &[String]) -> Self {
         EmbeddingInput::StringArray(value.to_vec())
+    }
+}
+
+impl From<&[InputRow]> for EmbeddingInput {
+    fn from(value: &[InputRow]) -> Self {
+        EmbeddingInput::StringArray(value.to_vec().into_iter().map(|row| row.body).collect())
+    }
+}
+
+impl From<&Vec<InputRow>> for EmbeddingInput {
+    fn from(value: &Vec<InputRow>) -> Self {
+        EmbeddingInput::StringArray(value.into_iter().map(|row| row.body.to_string()).collect())
+    }
+}
+
+impl From<&mut Vec<InputRow>> for EmbeddingInput {
+    fn from(value: &mut Vec<InputRow>) -> Self {
+        EmbeddingInput::StringArray(value.into_iter().map(|row| row.body.to_string()).collect())
     }
 }
 

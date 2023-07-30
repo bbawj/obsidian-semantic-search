@@ -1,6 +1,5 @@
 use log::debug;
 use regex::Regex;
-use js_sys::JsString;
 use log::error;
 use wasm_bindgen::prelude::*;
 use lazy_static::lazy_static;
@@ -8,7 +7,7 @@ use lazy_static::lazy_static;
 use crate::FileProcessor;
 use crate::SemanticSearchError;
 use crate::Notice;
-use crate::DATA_FILE_PATH;
+use crate::file_processor::InputRow;
 use crate::obsidian;
 use crate::obsidian::App;
 use crate::obsidian::semanticSearchSettings;
@@ -32,12 +31,22 @@ impl GenerateInputCommand {
     }
 
     pub async fn callback(&self) {
-        let data = self.generate_input().await.expect("failed to generate input.csv");
-        match self.file_processor.delete_file_at_path(DATA_FILE_PATH).await {
+		let data: Vec<InputRow>;
+        match self.generate_input().await {
+			Ok(input) => data = input,
+			Err(e) => {
+				Notice::new(&format!("An error occurred generating inputs: {}", e));
+				error!("{:?}", e);
+				return;
+			}
+		}
+		debug!("Deleting input.csv");
+        match self.file_processor.delete_input().await {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
         }
-        match self.file_processor.write_to_path(DATA_FILE_PATH, &data).await {
+		debug!("Writing input.csv");
+        match self.file_processor.write_input_csv(data).await {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
         }
@@ -45,29 +54,28 @@ impl GenerateInputCommand {
         Notice::new("Successfully created input.csv");
     }
 
-    async fn generate_input(&self) -> Result<String, SemanticSearchError> {
+    async fn generate_input(&self) -> Result<Vec<InputRow>, SemanticSearchError> {
         let files = self.file_processor.get_vault_markdown_files(self.ignored_folders.clone());
-        let mut wtr = csv::Writer::from_writer(vec![]);
+		debug!("Found {} files", files.len());
+		let mut folded_input: Vec<InputRow> = Vec::new();
         for file in files {
-            let extracted = self.process_file(file).await.unwrap();
-            for (file_name, header, body) in extracted {
-                wtr.write_record(&[&file_name, &header, &body])?;
-            }
+            let mut extracted = self.process_file(file).await.unwrap();
+			folded_input.append(&mut extracted);
         }
-        let data = String::from_utf8(wtr.into_inner()?)?;
-        Ok(data)
+        Ok(folded_input)
     }
 
-    async fn process_file(&self, file: obsidian::TFile) -> Result<Vec<(String, String, String)>, SemanticSearchError> {
+    async fn process_file(&self, file: obsidian::TFile) -> Result<Vec<InputRow>, SemanticSearchError> {
         let name = file.name();
+		let mtime = file.stat().mtime();
         let text = self.file_processor.read_from_file(file).await?;
-        let sections = extract_sections(&name, &text, &self.section_delimeter_regex)?;
-        Ok(sections)
-    }
+		let sections = extract_sections(&name, &mtime.to_string(), &text, &self.section_delimeter_regex)?;
+		Ok(sections)
+	}
 }
 
-fn extract_sections(name: &str, text: &str, delimeter: &str) -> Result<Vec<(String, String, String)>, SemanticSearchError> {
-    let mut header_to_content: Vec<(String, String, String)> = Vec::new();
+fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Result<Vec<InputRow>, SemanticSearchError> {
+    let mut output: Vec<InputRow> = Vec::new();
     let mut lines = text.lines().peekable();
     let re = match Regex::new(delimeter) {
         Ok(r) => r,
@@ -81,24 +89,24 @@ fn extract_sections(name: &str, text: &str, delimeter: &str) -> Result<Vec<(Stri
     while let Some(line) = lines.next() {
         if re.is_match(&line) {
             if body.len() != 0 || section_header != "" {
-                header_to_content.push((name.to_string(), clean_text(&section_header), clean_text(&body.join(" "))));
-            }
-            section_header = line.to_string();
-            body = vec![line.to_string()];
-        } else {
-            if section_header == "" {
-                section_header = line.to_string();
-            }
-            let cleaned_line = clean_text(line);
-            if cleaned_line != "" {
-                body.push(cleaned_line);
-            }
-        }
-        if lines.peek().is_none() && (section_header != "" || body.len() != 0) {
-            header_to_content.push((name.to_string(), clean_text(&section_header), clean_text(&body.join(" "))));
-        }
+				output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body.join(" ") )});
+			}
+			section_header = line.to_string();
+			body = vec![line.to_string()];
+		} else {
+			if section_header == "" {
+				section_header = line.to_string();
+			}
+			let cleaned_line = clean_text(line);
+			if cleaned_line != "" {
+				body.push(cleaned_line);
+			}
+		}
+		if lines.peek().is_none() && (section_header != "" || body.len() != 0) {
+			output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body.join(" ") )});
+		}
     }
-    Ok(header_to_content)
+    Ok(output)
 }
 
 fn clean_text(text: &str) -> String {
@@ -135,12 +143,12 @@ mod tests {
         let text = "## Test";
         let section_delimeter = r"^## \S*";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
 
         assert_eq!(res.len(), 1);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Test");
-        assert_eq!(res.get(0).unwrap().2, "Test");
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Test");
+        assert_eq!(res.get(0).unwrap().body, "Test");
     }
 
     #[test]
@@ -148,12 +156,12 @@ mod tests {
         let text = "## Test\n ";
         let section_delimeter = r"^## \S*";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
 
         assert_eq!(res.len(), 1);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Test");
-        assert_eq!(res.get(0).unwrap().2, "Test");
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Test");
+        assert_eq!(res.get(0).unwrap().body, "Test");
     }
 
     #[test]
@@ -161,12 +169,12 @@ mod tests {
         let text = "## Test\nThis is a test body.";
         let section_delimeter = r"^## \S*";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
 
         assert_eq!(res.len(), 1);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Test");
-        assert_eq!(res.get(0).unwrap().2, "Test This is a test body.");
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Test");
+        assert_eq!(res.get(0).unwrap().body, "Test This is a test body.");
     }
 
     #[test]
@@ -174,15 +182,15 @@ mod tests {
         let text = "## Test\n## Test2";
         let section_delimeter = r"^## .*";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
 
         assert_eq!(res.len(), 2);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Test");
-        assert_eq!(res.get(0).unwrap().2, "Test");
-        assert_eq!(res.get(1).unwrap().0, "test");
-        assert_eq!(res.get(1).unwrap().1, "Test2");
-        assert_eq!(res.get(1).unwrap().2, "Test2");
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Test");
+        assert_eq!(res.get(0).unwrap().body, "Test");
+        assert_eq!(res.get(1).unwrap().name, "test");
+        assert_eq!(res.get(1).unwrap().section, "Test2");
+        assert_eq!(res.get(1).unwrap().body, "Test2");
     }
 
     #[test]
@@ -190,28 +198,28 @@ mod tests {
         let text = "# Test1\ncontent1\n## Test2\ncontent2\n### Test3\ncontent3\n#### Test4\ncontent4\n##### Test5\ncontent5\n###### Test6\ncontent6";
         let section_delimeter = r"^#{1,6} ";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
         println!("{:?}", res);
 
         assert_eq!(res.len(), 6);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Test1");
-        assert_eq!(res.get(0).unwrap().2, "Test1 content1");
-        assert_eq!(res.get(1).unwrap().0, "test");
-        assert_eq!(res.get(1).unwrap().1, "Test2");
-        assert_eq!(res.get(1).unwrap().2, "Test2 content2");
-        assert_eq!(res.get(2).unwrap().0, "test");
-        assert_eq!(res.get(2).unwrap().1, "Test3");
-        assert_eq!(res.get(2).unwrap().2, "Test3 content3");
-        assert_eq!(res.get(3).unwrap().0, "test");
-        assert_eq!(res.get(3).unwrap().1, "Test4");
-        assert_eq!(res.get(3).unwrap().2, "Test4 content4");
-        assert_eq!(res.get(4).unwrap().0, "test");
-        assert_eq!(res.get(4).unwrap().1, "Test5");
-        assert_eq!(res.get(4).unwrap().2, "Test5 content5");
-        assert_eq!(res.get(5).unwrap().0, "test");
-        assert_eq!(res.get(5).unwrap().1, "Test6");
-        assert_eq!(res.get(5).unwrap().2, "Test6 content6");
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Test1");
+        assert_eq!(res.get(0).unwrap().body, "Test1 content1");
+        assert_eq!(res.get(1).unwrap().name, "test");
+        assert_eq!(res.get(1).unwrap().section, "Test2");
+        assert_eq!(res.get(1).unwrap().body, "Test2 content2");
+        assert_eq!(res.get(2).unwrap().name, "test");
+        assert_eq!(res.get(2).unwrap().section, "Test3");
+        assert_eq!(res.get(2).unwrap().body, "Test3 content3");
+        assert_eq!(res.get(3).unwrap().name, "test");
+        assert_eq!(res.get(3).unwrap().section, "Test4");
+        assert_eq!(res.get(3).unwrap().body, "Test4 content4");
+        assert_eq!(res.get(4).unwrap().name, "test");
+        assert_eq!(res.get(4).unwrap().section, "Test5");
+        assert_eq!(res.get(4).unwrap().body, "Test5 content5");
+        assert_eq!(res.get(5).unwrap().name, "test");
+        assert_eq!(res.get(5).unwrap().section, "Test6");
+        assert_eq!(res.get(5).unwrap().body, "Test6 content6");
     }
 
     #[test]
@@ -219,12 +227,12 @@ mod tests {
         let text = "# Test1\ncontent1\n## Test2\ncontent2\n### Test3\ncontent3\n#### Test4\ncontent4\n##### Test5\ncontent5\n###### Test6\ncontent6";
         let section_delimeter = r"^### \S*";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
 
         assert_eq!(res.len(), 2);
-        assert_eq!(res.get(1).unwrap().0, "test");
-        assert_eq!(res.get(1).unwrap().1, "Test3");
-        assert_eq!(res.get(1).unwrap().2, "Test3 content3 Test4 content4 Test5 content5 Test6 content6");
+        assert_eq!(res.get(1).unwrap().name, "test");
+        assert_eq!(res.get(1).unwrap().section, "Test3");
+        assert_eq!(res.get(1).unwrap().body, "Test3 content3 Test4 content4 Test5 content5 Test6 content6");
     }
 
     #[test]
@@ -259,13 +267,13 @@ mod tests {
         let text = "## Test\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)\n### Test2\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)";
         let section_delimeter = "^## .*";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
         println!("{:?}", res.get(0));
 
         assert_eq!(res.len(), 1);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Test");
-        assert_eq!(res.get(0).unwrap().2, "Test Test2");
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Test");
+        assert_eq!(res.get(0).unwrap().body, "Test Test2");
     }
 
     #[test]
@@ -282,16 +290,16 @@ Guarantees reliability only if sender is correct
 ";
         let section_delimeter = "##";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
         println!("{:?}", res.get(0));
 
         assert_eq!(res.len(), 2);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Unreliable Broadcast");
-        assert_eq!(res.get(0).unwrap().2, "Unreliable Broadcast Does not guarantee anything. Such events are allowed:");
-        assert_eq!(res.get(1).unwrap().0, "test");
-        assert_eq!(res.get(1).unwrap().1, "Best Effort Broadcast");
-        assert_eq!(res.get(1).unwrap().2, "Best Effort Broadcast Guarantees reliability only if sender is correct \
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Unreliable Broadcast");
+        assert_eq!(res.get(0).unwrap().body, "Unreliable Broadcast Does not guarantee anything. Such events are allowed:");
+        assert_eq!(res.get(1).unwrap().name, "test");
+        assert_eq!(res.get(1).unwrap().section, "Best Effort Broadcast");
+        assert_eq!(res.get(1).unwrap().body, "Best Effort Broadcast Guarantees reliability only if sender is correct \
 - BEB1. Best-effort-Validity: If pi and pj are correct, then any broadcast by pi is eventually delivered by pj \
 - BEB2. No duplication: No message delivered more than once \
 - BEB3. No creation: No message delivered unless broadcast");
@@ -302,21 +310,21 @@ Guarantees reliability only if sender is correct
         let text = "## Test\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)\n### Test2\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)";
         let section_delimeter = "";
 
-        let res = extract_sections(NAME, text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
         println!("{:?}", res.get(0));
 
         assert_eq!(res.len(), 4);
-        assert_eq!(res.get(0).unwrap().0, "test");
-        assert_eq!(res.get(0).unwrap().1, "Test");
-        assert_eq!(res.get(0).unwrap().2, "Test");
-        assert_eq!(res.get(1).unwrap().0, "test");
-        assert_eq!(res.get(1).unwrap().1, "");
-        assert_eq!(res.get(1).unwrap().2, "");
-        assert_eq!(res.get(2).unwrap().0, "test");
-        assert_eq!(res.get(2).unwrap().1, "Test2");
-        assert_eq!(res.get(2).unwrap().2, "Test2");
-        assert_eq!(res.get(3).unwrap().0, "test");
-        assert_eq!(res.get(3).unwrap().1, "");
-        assert_eq!(res.get(3).unwrap().2, "");
+        assert_eq!(res.get(0).unwrap().name, "test");
+        assert_eq!(res.get(0).unwrap().section, "Test");
+        assert_eq!(res.get(0).unwrap().body, "Test");
+        assert_eq!(res.get(1).unwrap().name, "test");
+        assert_eq!(res.get(1).unwrap().section, "");
+        assert_eq!(res.get(1).unwrap().body, "");
+        assert_eq!(res.get(2).unwrap().name, "test");
+        assert_eq!(res.get(2).unwrap().section, "Test2");
+        assert_eq!(res.get(2).unwrap().body, "Test2");
+        assert_eq!(res.get(3).unwrap().name, "test");
+        assert_eq!(res.get(3).unwrap().section, "");
+        assert_eq!(res.get(3).unwrap().body, "");
     }
 }

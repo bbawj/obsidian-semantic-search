@@ -48,6 +48,11 @@ extern "C" {
     #[derive(Debug)]
     pub type TAbstractFile;
 
+	#[derive(Debug)]
+	pub type FileStats;
+	#[wasm_bindgen(method,getter)]
+	pub fn mtime(this: &FileStats) -> f64;
+
     #[derive(Debug)]
     #[wasm_bindgen(extends = TAbstractFile)]
     pub type TFile;
@@ -56,6 +61,8 @@ extern "C" {
     pub fn path(this: &TFile) -> String;
     #[wasm_bindgen(method, getter)]
     pub fn name(this: &TFile) -> String;
+    #[wasm_bindgen(method, getter)]
+    pub fn stat(this: &TFile) -> FileStats;
     #[wasm_bindgen(method, getter)]
     pub fn extension(this: &TFile) -> String;
 

@@ -1,6 +1,4 @@
-use std::error::Error;
-use crate::EmbeddingRequestBuilderError;
-use csv::Writer;
+use anyhow::anyhow;
 use serde::Deserialize;
 use wasm_bindgen::JsValue;
 
@@ -8,6 +6,12 @@ use wasm_bindgen::JsValue;
 #[derive(Debug, Deserialize)]
 pub(crate) struct WrappedError {
     pub(crate) error: ApiError,
+}
+
+impl std::fmt::Display for WrappedError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.error)
+    }
 }
 
 /// OpenAI API returns error object on failure
@@ -19,83 +23,41 @@ pub struct ApiError {
     pub code: Option<serde_json::Value>,
 }
 
-#[derive(Debug)]
-pub enum SemanticSearchError {
-    ObsidianError(JsValue),
-    WriteError(csv::Error),
-    ConversionError(Box<dyn std::error::Error>),
-    ReqwestError(reqwest::Error),
-    JSONDeserialize(serde_json::Error),
-    ApiError(ApiError),
-    InvalidArgument(String),
-    GetEmbeddingsError(String),
+impl std::fmt::Display for ApiError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Call to OpenAI failed with code: {:?}, message: {}, type: {}, param: {:?}",
+            self.code, self.message, self.r#type, self.param
+        )
+    }
 }
+
+#[derive(Debug)]
+pub struct SemanticSearchError(pub anyhow::Error);
+
+impl std::error::Error for SemanticSearchError {}
 
 impl std::fmt::Display for SemanticSearchError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            SemanticSearchError::ObsidianError(e) => write!(f, "obsidian error; {}", e.as_string().unwrap()),
-            SemanticSearchError::WriteError(e) => write!(f, "write error; {:?}", e.source()),
-            SemanticSearchError::ConversionError(e) => write!(f, "conversion error; {:?}", e.source()),
-            SemanticSearchError::ReqwestError(e) => write!(f, "reqwest error; {}", e),
-            SemanticSearchError::JSONDeserialize(e) => write!(f, "JSONDeserialize error: {:?}", e),
-            SemanticSearchError::ApiError(e) => write!(f, "API error: {}: {}", e.r#type, e.message),
-            SemanticSearchError::InvalidArgument(e) => write!(f, "Invalid argument: {}", e),
-            SemanticSearchError::GetEmbeddingsError(e) => write!(f, "GetEmbeddingsError: {}", e),
-        }
+        write!(f, "{:?}", self)
     }
 }
 
-impl From<csv::Error> for SemanticSearchError {
-    fn from(value: csv::Error) -> Self {
-        Self::WriteError(value)
-    }
-}
-
-impl From<csv::IntoInnerError<Writer<Vec<u8>>>> for SemanticSearchError {
-    fn from(value: csv::IntoInnerError<Writer<Vec<u8>>>) -> Self {
-        Self::ConversionError(Box::new(value.into_error()))
-    }
-}
-
-impl From<std::string::FromUtf8Error> for SemanticSearchError {
-    fn from(value: std::string::FromUtf8Error) -> Self {
-        Self::ConversionError(Box::new(value))
+impl From<anyhow::Error> for SemanticSearchError {
+    fn from(value: anyhow::Error) -> Self {
+        SemanticSearchError(value)
     }
 }
 
 impl From<wasm_bindgen::JsValue> for SemanticSearchError {
     fn from(value: wasm_bindgen::JsValue) -> Self {
-        Self::ObsidianError(value)
+        SemanticSearchError(anyhow!("{:?}", value))
     }
-}
-
-impl From<reqwest::Error> for SemanticSearchError {
-    fn from(value: reqwest::Error) -> Self {
-        Self::ReqwestError(value)
-    }
-}
-
-impl From<EmbeddingRequestBuilderError> for SemanticSearchError {
-    fn from(value: EmbeddingRequestBuilderError) -> Self {
-        Self::InvalidArgument(value.to_string())
-    }
-}
-
-impl std::error::Error for SemanticSearchError {
 }
 
 impl Into<wasm_bindgen::JsValue> for SemanticSearchError {
     fn into(self) -> wasm_bindgen::JsValue {
-        match self {
-            SemanticSearchError::ObsidianError(e) => e,
-            SemanticSearchError::WriteError(e) => JsValue::from_str(&format!("{:?}", e)),
-            SemanticSearchError::ConversionError(e) => JsValue::from_str(&format!("{:?}", e)),
-            SemanticSearchError::ReqwestError(e) => JsValue::from_str(&format!("{:?}", e)),
-            SemanticSearchError::JSONDeserialize(e) => JsValue::from_str(&format!("{:?}", e)),
-            SemanticSearchError::ApiError(e) => JsValue::from_str(&format!("{:?}", e)),
-            SemanticSearchError::InvalidArgument(e) => JsValue::from_str(&format!("{:?}", e)),
-            SemanticSearchError::GetEmbeddingsError(e) => JsValue::from_str(&format!("{:?}", e)),
-        }
+        JsValue::from_str(&format!("{:?}", self))
     }
 }

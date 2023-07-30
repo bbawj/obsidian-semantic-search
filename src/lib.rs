@@ -4,11 +4,14 @@ mod file_processor;
 mod error;
 mod generate_input;
 
-use crate::embedding::EmbeddingRequestBuilderError;
 use crate::embedding::EmbeddingRequestBuilder;
+use crate::file_processor::EMBEDDING_FILE_PATH;
+use crate::file_processor::EmbeddingRow;
 use crate::obsidian::Notice;
 
-use csv::{ReaderBuilder, StringRecord};
+use anyhow::Context;
+use anyhow::Result;
+use anyhow::anyhow;
 use embedding::EmbeddingRequest;
 use embedding::EmbeddingResponse;
 use error::SemanticSearchError;
@@ -27,14 +30,17 @@ use wasm_bindgen::prelude::*;
 
 use crate::embedding::EmbeddingInput;
 
-const DATA_FILE_PATH: &str = "input.csv";
-const EMBEDDING_FILE_PATH: &str = "embedding.csv";
-
 #[wasm_bindgen]
 pub struct GenerateEmbeddingsCommand {
     file_processor: FileProcessor,
     client: Client,
     num_batches: u32,
+}
+
+#[wasm_bindgen]
+pub struct CostEstimateResponse {
+	pub nfiles: i64,
+	pub cost: f32
 }
 
 #[wasm_bindgen]
@@ -48,14 +54,13 @@ impl GenerateEmbeddingsCommand {
     }
 
     pub async fn get_embeddings(&self) -> Result<(), SemanticSearchError> {
-        self.file_processor.delete_file_at_path(EMBEDDING_FILE_PATH).await?;
-        let input = self.file_processor.read_from_path(DATA_FILE_PATH).await?;
-        let string_records = self.get_content_to_embed(input.clone())?;
+        let (_, modified_input, mut reusable_embeddings) = self.file_processor.read_modified_input().await?;
+        self.file_processor.delete_embeddings().await?;
 
         let mut num_processed = 0;
         let num_batches = self.num_batches;
         let mut batch = 1;
-        let num_records = string_records.len();
+        let num_records = modified_input.len();
         debug!("Found {} records.", num_records);
         let batch_size = (num_records as f64 / num_batches as f64).ceil() as usize;
 
@@ -66,39 +71,35 @@ impl GenerateEmbeddingsCommand {
                 batch_size
             };
 
-            let records = &string_records[num_processed..num_processed + num_to_process];
+            let records = &modified_input[num_processed..num_processed + num_to_process].to_vec();
             debug!("Processing batch {}: {} to {}", batch, num_processed, num_processed + num_to_process);
 
             let request = self.client.create_embedding_request(records.into())?;
             let response = self.client.post_embedding_request(&request).await?;
             debug!("Sucessfully obtained {} embeddings", response.data.len());
 
-            let filename_body = self.get_filename_body(input.clone())?;
-            let mut wtr = csv::Writer::from_writer(vec![]);
-            match request.input {
-                EmbeddingInput::StringArray(arr) => {
-                    for (i, _) in arr.iter().enumerate() {
-                        let record_idx = num_processed + i;
-                        let filename_header = match filename_body.get(record_idx) {
-                            None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching filename and header for input index {}", i)).into()),
-                            Some(filename_header) => filename_header
-                        };
-                        let filename = &filename_header.0;
-                        let header = &filename_header.1;
-                        let embedding = match &response.data.get(i) {
-                            None => return Err(SemanticSearchError::GetEmbeddingsError(format!("Cannot find matching embedding for filename: {}, header: {}", filename, header)).into()),
-                            Some(embedding) => {
-                                let vec: Vec<String> = embedding.embedding.clone().into_iter().map(|f| f.to_string()).collect();
-                                vec.join(",")
-                            }
-                        };
-                        wtr.write_record(&[filename, header, &embedding])?;
-                    }
-                }
-            }
+			if records.len() != response.data.len() {
+				return Err(SemanticSearchError(anyhow!("Requested for {} embeddings but got {}", records.len(), response.data.len())));
+			}
 
-            let data = String::from_utf8(wtr.into_inner()?)?;
-            self.file_processor.write_to_path(EMBEDDING_FILE_PATH, &data).await?;
+			let mut embedding_rows: Vec<EmbeddingRow> = Vec::with_capacity(num_to_process);
+
+			records.into_iter().enumerate().for_each( |(i, record)| {
+				let embedding = response.data.get(i).map(|res| {
+					res.embedding.clone().into_iter().map(|f| f.to_string()).collect::<Vec<String>>().join(",")
+				}).expect("Length of records and response data should be aligned");
+
+				embedding_rows.push(EmbeddingRow {
+					name: record.name.to_string(),
+					mtime: record.mtime.to_string(),
+					header: record.section.to_string(),
+					embedding
+				});
+			});
+
+			embedding_rows.append(&mut reusable_embeddings);
+			self.file_processor.write_embedding_csv(embedding_rows).await?;
+
             num_processed += num_to_process;
             batch += 1;
         }
@@ -107,37 +108,18 @@ impl GenerateEmbeddingsCommand {
         Ok(())
     }
 
-    pub async fn get_input_cost_estimate(&self) -> Result<f32, SemanticSearchError> {
-        let input = self.file_processor.read_from_path(DATA_FILE_PATH).await?;
-        let string_records = self.get_content_to_embed(input)?;
-        let combined_string = string_records.join("");
-        let estimate = get_query_cost_estimate(&combined_string);
-        Ok(estimate)
+    pub async fn get_input_cost_estimate(&self) -> Result<CostEstimateResponse, SemanticSearchError> {
+        let (n_modified, input, _) = self.file_processor.read_modified_input().await?;
+        let string_records = input.into_iter().fold(String::new(), |mut acc, x| {
+			acc.push_str(&x.body);
+			acc
+		});
+        let estimate = get_query_cost_estimate(&string_records);
+        Ok(CostEstimateResponse { nfiles: n_modified, cost: estimate })
     }
 
-    pub async fn check_embedding_file_exists(&self) -> Result<bool, SemanticSearchError> {
-        let exists = self.file_processor.check_file_exists_at_path(EMBEDDING_FILE_PATH).await?;
-        Ok(exists)
-    }
-
-    fn get_content_to_embed(&self, input: String) -> Result<Vec<String>, SemanticSearchError> {
-        let mut reader = ReaderBuilder::new().trim(csv::Trim::All).flexible(false)
-            .from_reader(input.as_bytes());
-        let records = reader.records().collect::<Result<Vec<StringRecord>, csv::Error>>()?;
-        let string_records = records.iter().map(|record| {
-            record.get(2).unwrap().to_string()
-        }).collect();
-        Ok(string_records)
-    }
-
-    fn get_filename_body(&self, input: String) -> Result<Vec<(String, String)>, SemanticSearchError> {
-        let mut reader = ReaderBuilder::new().trim(csv::Trim::All).flexible(false)
-            .from_reader(input.as_bytes());
-        let records = reader.records().collect::<Result<Vec<StringRecord>, csv::Error>>()?;
-        let filename_body = records.iter().map(|record| 
-                           (record.get(0).unwrap().to_string(), record.get(2).unwrap().to_string())
-                          ).collect();
-        Ok(filename_body)
+    pub async fn check_embedding_file_exists(&self) -> bool {
+        return self.file_processor.check_file_exists_at_path(EMBEDDING_FILE_PATH).await;
     }
 }
 
@@ -147,31 +129,40 @@ pub struct QueryCommand {
     client: Client,
 }
 
+struct Embedding<'a> {
+	row: &'a EmbeddingRow,
+	score: f32,
+}
+
 #[wasm_bindgen]
 impl QueryCommand {
     async fn get_similarity(&self, query: String) -> Result<Vec<Suggestions>, SemanticSearchError> {
-        let mut rows = self.get_embedding_rows().await?;
+        let rows = self.file_processor.read_embedding_csv().await?;
         let response = self.client.get_embedding(query.into()).await?;
         debug!("Sucessfully obtained {} embeddings", response.data.len());
         let query_embedding = response.data[0].clone().embedding;
-        rows.sort_unstable_by(|row1, row2| cosine_similarity(query_embedding.clone(), row1.clone().2).partial_cmp(&cosine_similarity(query_embedding.to_owned(), row2.clone().2)).unwrap());
-        rows.reverse();
-        let ranked = rows.iter().map(|(name, header, _)| Suggestions { name: name.to_string(), header: header.to_string() }).collect();
+
+		let mut embeddings: Vec<Embedding> = Vec::with_capacity(rows.len());
+		for row in &rows {
+			let deserialized = deserialize_embeddings(&row.embedding).with_context(|| format!("Failed to deserialize embedding for file: {} and section: {} with embedding: {}", &row.name, &row.header, &row.embedding))?;
+			embeddings.push(Embedding { 
+				score: cosine_similarity(query_embedding.clone(), deserialized), 
+				row: &row 
+			});
+		}
+
+
+        embeddings.sort_unstable_by(|row1: &Embedding, row2: &Embedding| {
+			row1.score.partial_cmp(&row2.score).expect("scores should be comparable")
+		});
+        embeddings.reverse();
+        let ranked = embeddings.iter().map(|e| Suggestions { name: e.row.name.to_string(), header: e.row.header.to_string() }).collect();
         Ok(ranked)
     }
+}
 
-    async fn get_embedding_rows(&self) -> Result<Vec<(String, String, Vec<f32>)>, SemanticSearchError> {
-        let input = self.file_processor.read_from_path(EMBEDDING_FILE_PATH).await?;
-        let mut reader = ReaderBuilder::new().trim(csv::Trim::All).flexible(false)
-            .from_reader(input.as_bytes());
-        let records = reader.records().collect::<Result<Vec<StringRecord>, csv::Error>>()?;
-        let rows = records.iter().map(|record| 
-                           (record.get(0).unwrap().to_string(), 
-                            record.get(1).unwrap().to_string(),
-                            record.get(2).unwrap().to_string().split(",").map(|s| s.parse::<f32>().unwrap()).collect())
-                          ).collect();
-        Ok(rows)
-    }
+fn deserialize_embeddings(embedding: &str) -> Result<Vec<f32>> {
+	embedding.split(",").map(|s| s.parse::<f32>().context("Embedding should be comma-separated list of f32")).collect()
 }
 
 fn cosine_similarity(left: Vec<f32>, right: Vec<f32>) -> f32 {
@@ -190,7 +181,7 @@ pub struct Suggestions {
 pub async fn get_suggestions(app: &obsidian::App, api_key: JsString, query: JsString) -> Result<JsValue, JsError> {
     let query_string = query.as_string().unwrap();
     let file_processor = FileProcessor::new(app.vault());
-    let client = Client::new(api_key.as_string().unwrap());
+    let client = Client::new(api_key.as_string().expect("API Key is invalid"));
     let query_cmd = QueryCommand { file_processor, client };
     let mut ranked_suggestions = query_cmd.get_similarity(query_string).await?;
     ranked_suggestions.truncate(10);
@@ -245,40 +236,40 @@ impl Client {
         Ok(response)
     }
 
-    fn create_embedding_request(&self, input: EmbeddingInput) -> Result<EmbeddingRequest, SemanticSearchError> {
+    fn create_embedding_request(&self, input: EmbeddingInput) -> Result<EmbeddingRequest> {
         let embedding_request = EmbeddingRequestBuilder::default()
             .model("text-embedding-ada-002".to_string())
             .input(input)
             .user(None)
-            .build()?;
+            .build().context("Failed to build embedding request")?;
         Ok(embedding_request)
     }
 
-    async fn post_embedding_request<I: serde::ser::Serialize>(&self, request: I) -> Result<EmbeddingResponse, SemanticSearchError> {
-        let path = "/embeddings";
+    async fn post_embedding_request<I: serde::ser::Serialize>(&self, request: I) -> Result<EmbeddingResponse> {
+		let path = "/embeddings";
+		let url = format!("{}{path}", self.api_base()); 
 
-        let request = reqwest::Client::new()
-            .post(format!("{}{path}", self.api_base()))
+		let request = reqwest::Client::new()
+            .post(&url)
             .bearer_auth(self.api_key())
             .headers(self.headers())
             .json(&request)
             .build()?;
 
         let reqwest_client = reqwest::Client::new();
-        let response = reqwest_client.execute(request).await?;
+        let response = reqwest_client.execute(request).await.context(format!("Failed POST request to {}", url))?;
 
         let status = response.status();
         let bytes = response.bytes().await?;
 
         if !status.is_success() {
             let wrapped_error: WrappedError =
-                serde_json::from_slice(bytes.as_ref()).map_err(SemanticSearchError::JSONDeserialize)?;
-
-            return Err(SemanticSearchError::ApiError(wrapped_error.error));
+                serde_json::from_slice(bytes.as_ref())?;
+			return Err(anyhow!(wrapped_error));
         }
 
         let response: EmbeddingResponse =
-            serde_json::from_slice(bytes.as_ref()).map_err(SemanticSearchError::JSONDeserialize)?;
+            serde_json::from_slice(bytes.as_ref()).context("Failed deserializing embedding response")?;
         Ok(response)
     }
 }

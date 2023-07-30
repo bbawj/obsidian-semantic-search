@@ -38,6 +38,7 @@ export default class SemanticSearch extends Plugin {
 			name: 'Generate Input',
 			callback: () => {
         try {
+			
           new plugin.GenerateInputCommand(this.app, this.settings).callback();
         } catch (error) {
           new Notice("Failed to generate input");

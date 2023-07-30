@@ -3,10 +3,10 @@ import { App, PluginSettingTab, Setting, TextComponent } from "obsidian";
 
 export interface semanticSearchSettings {
 	apiKey: string;
-  ignoredFolders: string;
-  sectionDelimeterRegex: string;
-  numBatches: number;
-  enableLinkRecommendationSuggestor: boolean;
+	ignoredFolders: string;
+	sectionDelimeterRegex: string;
+	numBatches: number;
+	enableLinkRecommendationSuggestor: boolean;
 }
 
 export class SemanticSearchSettingTab extends PluginSettingTab {
