@@ -121,8 +121,8 @@ impl FileProcessor {
 		Ok(())
 	}
 
-	pub async fn write_embedding_csv(&self, embeddings: Vec<EmbeddingRow>) -> Result<()> {
-		let mut wtr = csv::Writer::from_writer(vec![]);
+	pub async fn write_embedding_csv(&self, embeddings: Vec<EmbeddingRow>, with_header: bool) -> Result<()> {
+		let mut wtr = csv::WriterBuilder::new().has_headers(with_header).from_writer(vec![]);
 		for row in embeddings {
 			wtr.serialize(WrittenEmbeddingRow {
 				name: &row.name,

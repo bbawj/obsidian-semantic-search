@@ -63,6 +63,7 @@ impl GenerateEmbeddingsCommand {
         let num_records = modified_input.len();
         debug!("Found {} records.", num_records);
         let batch_size = (num_records as f64 / num_batches as f64).ceil() as usize;
+		let mut with_headers = true;
 
         while num_processed < num_records {
             let num_to_process = if batch == num_batches {
@@ -98,10 +99,11 @@ impl GenerateEmbeddingsCommand {
 			});
 
 			embedding_rows.append(&mut reusable_embeddings);
-			self.file_processor.write_embedding_csv(embedding_rows).await?;
+			self.file_processor.write_embedding_csv(embedding_rows, with_headers).await?;
 
             num_processed += num_to_process;
             batch += 1;
+			with_headers = false;
         }
         
         debug!("Saved embeddings to {}", EMBEDDING_FILE_PATH);
