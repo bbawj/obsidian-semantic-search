@@ -46,6 +46,10 @@ From Github
 
 Contributions are welcome!
 
+### Dependencies
+1. [Rust and cargo](https://www.rust-lang.org/tools/install)
+2. [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/)
+
 ### Getting Started
 1. Clone the repo
 2. cd into the newly created folder and run `yarn install`
