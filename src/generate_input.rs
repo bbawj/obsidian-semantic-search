@@ -89,7 +89,11 @@ fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Res
     while let Some(line) = lines.next() {
         if re.is_match(&line) {
             if !(section_header.trim().is_empty() && body.trim().is_empty()) {
-				output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body)});
+				let section_text = clean_text(&section_header);
+				let body_text = clean_text(&body);
+				if !(section_text.is_empty() && body_text.is_empty()) {
+					output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: section_text, body: body_text});
+				}
 			}
 			section_header = line.to_string();
 			body = line.to_string();
@@ -104,7 +108,11 @@ fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Res
 			}
 		}
 		if lines.peek().is_none() && !(section_header.trim().is_empty() && body.trim().is_empty()) {
-			output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body)});
+			let section_text = clean_text(&section_header);
+			let body_text = clean_text(&body);
+			if !(section_text.is_empty() && body_text.is_empty()) {
+				output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: section_text, body: body_text});
+			}
 		}
     }
     Ok(output)
@@ -164,7 +172,7 @@ mod tests {
 
 	#[test]
 	fn empty_section_inbetween() {
-        let text = "Test\n \nTest2";
+        let text = "Test\n \nTest2\n ";
         let section_delimeter = r".";
 
         let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
@@ -338,18 +346,12 @@ Guarantees reliability only if sender is correct
         let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
         println!("{:?}", res.get(0));
 
-        assert_eq!(res.len(), 4);
+        assert_eq!(res.len(), 2);
         assert_eq!(res.get(0).unwrap().name, "test");
         assert_eq!(res.get(0).unwrap().section, "Test");
         assert_eq!(res.get(0).unwrap().body, "Test");
         assert_eq!(res.get(1).unwrap().name, "test");
-        assert_eq!(res.get(1).unwrap().section, "");
-        assert_eq!(res.get(1).unwrap().body, "");
-        assert_eq!(res.get(2).unwrap().name, "test");
-        assert_eq!(res.get(2).unwrap().section, "Test2");
-        assert_eq!(res.get(2).unwrap().body, "Test2");
-        assert_eq!(res.get(3).unwrap().name, "test");
-        assert_eq!(res.get(3).unwrap().section, "");
-        assert_eq!(res.get(3).unwrap().body, "");
+        assert_eq!(res.get(1).unwrap().section, "Test2");
+        assert_eq!(res.get(1).unwrap().body, "Test2");
     }
 }
