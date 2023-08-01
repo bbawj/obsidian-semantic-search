@@ -85,25 +85,26 @@ fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Res
         },
     };
     let mut section_header = "".to_string();
-    let mut body = Vec::new();
+    let mut body = String::new();
     while let Some(line) = lines.next() {
         if re.is_match(&line) {
-            if body.len() != 0 || section_header != "" {
-				output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body.join(" ") )});
+            if !(section_header.trim().is_empty() && body.trim().is_empty()) {
+				output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body)});
 			}
 			section_header = line.to_string();
-			body = vec![line.to_string()];
+			body = line.to_string();
 		} else {
-			if section_header == "" {
+			if section_header.is_empty() {
 				section_header = line.to_string();
 			}
 			let cleaned_line = clean_text(line);
-			if cleaned_line != "" {
-				body.push(cleaned_line);
+			if !cleaned_line.is_empty() {
+				body.push_str(&" ");
+				body.push_str(&cleaned_line);
 			}
 		}
-		if lines.peek().is_none() && (section_header != "" || body.len() != 0) {
-			output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body.join(" ") )});
+		if lines.peek().is_none() && !(section_header.trim().is_empty() && body.trim().is_empty()) {
+			output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: clean_text(&section_header), body: clean_text(&body)});
 		}
     }
     Ok(output)
@@ -150,6 +151,30 @@ mod tests {
         assert_eq!(res.get(0).unwrap().section, "Test");
         assert_eq!(res.get(0).unwrap().body, "Test");
     }
+
+	#[test]
+	fn empty_section() {
+        let text = " ";
+        let section_delimeter = r".";
+
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+
+        assert_eq!(res.len(), 0);
+	}
+
+	#[test]
+	fn empty_section_inbetween() {
+        let text = "Test\n \nTest2";
+        let section_delimeter = r".";
+
+        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+
+        assert_eq!(res.len(), 2);
+        assert_eq!(res.get(0).unwrap().section, "Test");
+        assert_eq!(res.get(0).unwrap().body, "Test");
+        assert_eq!(res.get(1).unwrap().section, "Test2");
+        assert_eq!(res.get(1).unwrap().body, "Test2");
+	}
 
     #[test]
     fn empty_body() {
