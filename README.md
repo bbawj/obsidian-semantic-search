@@ -2,6 +2,16 @@
 
 Find what you are looking for based on what you mean. A new file switcher powered by OpenAI's embedding API and built using WASM and Rust.
 
+## Quickstart
+
+1. Setup OpenAI API key in plugin settings
+2. Run `Generate Input` command
+3. Run `Generate Embedding` command
+4. Run `Open Query Modal` command and start semantic searching!
+
+## Demo
+https://user-images.githubusercontent.com/53790951/231014867-ce37c097-3b22-412a-9b1a-74204b0f167c.mp4
+
 ## Commands
 |Command|Description|
 |-------|-----------|
@@ -18,11 +28,6 @@ Find what you are looking for based on what you mean. A new file switcher powere
 |Folders to ignore| Folders to ignore when generating input. Enter folder paths separated by newlines.
 |Number of batches| Number of batches used to call OpenAI's endpoint. If you have lots of data, and are facing invalid request errors, try increasing this number.
 |Enable link recommendation using `{{}}`| Use `{{}}` as a way to trigger semantic search suggestions for file linking.
-
-*All settings currently require a reload to take effect*.
-
-## Demo
-https://user-images.githubusercontent.com/53790951/231014867-ce37c097-3b22-412a-9b1a-74204b0f167c.mp4
 
 ## Installing
 
