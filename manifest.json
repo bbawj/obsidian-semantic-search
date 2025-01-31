@@ -3,7 +3,7 @@
   "name": "Semantic Search",
   "version": "0.3.3",
   "minAppVersion": "1.0.0",
-  "description": "Semantic search for files using OpenAI's text embeddings",
+  "description": "Semantic search for files using text embeddings",
   "author": "bbawj",
   "authorUrl": "https://github.com/bbawj",
   "isDesktopOnly": true
