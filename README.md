@@ -1,10 +1,10 @@
 # Semantic Search for Obsidian
 
-Find what you are looking for based on what you mean. A new file switcher powered by OpenAI's embedding API and built using WASM and Rust.
+Find what you are looking for based on what you mean. A new file switcher built using WASM and Rust.
 
 ## Quickstart
 
-1. Setup OpenAI API key in plugin settings
+1. Setup API configuration in plugin settings
 2. Run `Generate Input` command
 3. Run `Generate Embedding` command
 4. Run `Open Query Modal` command and start semantic searching!
@@ -16,18 +16,23 @@ https://user-images.githubusercontent.com/53790951/231014867-ce37c097-3b22-412a-
 |Command|Description|
 |-------|-----------|
 |Generate Input|Generate input csv based on sections of your notes. Currently, sections are defined as text blocks between headings. Prepared input is saved as `input.csv` in your root folder.
-|Generate Embedding|Obtain embeddings via OpenAI's `text-embedding-ada-002` embedding model (this requires that the generate input command was successfully executed). Generated embeddings is saved as `embedding.csv` in your root folder.
+|Generate Embedding|Obtain embeddings via the configured API URL (this requires that the generate input command was successfully executed). Generated embeddings is saved as `embedding.csv` in your root folder.
 |Open Query Modal|Semantic search through your notes using generated embeddings.
 |Recommend links using current selection|Uses current editor selection as query input, automatically creating a markdown link with your choice. Can also be triggered in the context menu using the mouse right-click.
 
 ## Configuration
 |Setting|Description|
 |-------|-----------|
-|API Key| Your OpenAI API key which can be found [here](https://platform.openai.com/account/api-keys). This gets stored into `data.json` as per all obsidian plugin settings data so make sure you do not commit this file to a repository.
+|API URL| Any arbitrary url endpoint for obtaining embeddings (but make sure the response JSON is supported).
+|API Key| Optional API key that is placed into Bearer Auth HTTP header. This gets stored into `data.json` as per all obsidian plugin settings data so make sure you do not commit this file to a repository.
+|Model| The model id, passed in the key "model" of request.
+|API response type| The type of response JSON expected to be returned from the URL.
 |Section Delimeters| Regex used to determine if the current line is the start of a new section. Sections are used to group related content together. Defaults to `.`, meaning every line starts a new section. E.g. matching every heading: `^#{1,6} `
 |Folders to ignore| Folders to ignore when generating input. Enter folder paths separated by newlines.
 |Number of batches| Number of batches used to call OpenAI's endpoint. If you have lots of data, and are facing invalid request errors, try increasing this number.
 |Enable link recommendation using `{{}}`| Use `{{}}` as a way to trigger semantic search suggestions for file linking.
+|Enable cost estimation| Turn on/off input cost estimation that is based on a flat rate of $0.0004 / 1000 tokens.
+|Enable debug mode logging| Turn on/off more verbose logging.
 
 ## Installing
 

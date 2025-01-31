@@ -295,7 +295,6 @@ impl Client {
             // TODO: add user param for model
             .model(self.model.clone())
             .input(input)
-            .user(None)
             .build()
             .context("Failed to build embedding request")?;
         Ok(embedding_request)
