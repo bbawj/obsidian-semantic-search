@@ -86,8 +86,12 @@ export default class SemanticSearch extends Plugin {
 
 	async loadSettings() {
     const DEFAULT_SETTINGS: semanticSearchSettings = {
+      apiUrl: '',
       apiKey: '',
+      model: '',
+      debugMode: false,
       ignoredFolders: "",
+      apiResponseType: 'Ollama',
       sectionDelimeterRegex: '.',
       numBatches: 1,
       enableLinkRecommendationSuggestor: false

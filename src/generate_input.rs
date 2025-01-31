@@ -1,8 +1,10 @@
 use log::debug;
+use log::info;
 use regex::Regex;
 use log::error;
 use wasm_bindgen::prelude::*;
 use lazy_static::lazy_static;
+use anyhow::{Context, Result};
 
 use crate::FileProcessor;
 use crate::SemanticSearchError;
@@ -40,12 +42,12 @@ impl GenerateInputCommand {
 				return;
 			}
 		}
-		debug!("Deleting input.csv");
+		info!("Deleting input.csv");
         match self.file_processor.delete_input().await {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
         }
-		debug!("Writing input.csv");
+		info!("Writing input.csv");
         match self.file_processor.write_input_csv(data).await {
             Ok(()) => (),
             Err(e) => error!("{:?}", e),
@@ -56,19 +58,24 @@ impl GenerateInputCommand {
 
     async fn generate_input(&self) -> Result<Vec<InputRow>, SemanticSearchError> {
         let files = self.file_processor.get_vault_markdown_files(self.ignored_folders.clone());
-		debug!("Found {} files", files.len());
+		info!("Found {} files", files.len());
 		let mut folded_input: Vec<InputRow> = Vec::new();
         for file in files {
-            let mut extracted = self.process_file(file).await.unwrap();
-			folded_input.append(&mut extracted);
+            match self.process_file(file).await {
+				Ok(mut extracted) => {
+					folded_input.append(&mut extracted);
+				},
+				Err(e) => error!("{:?}", e),
+			}
         }
         Ok(folded_input)
     }
 
     async fn process_file(&self, file: obsidian::TFile) -> Result<Vec<InputRow>, SemanticSearchError> {
         let name = file.name();
+		debug!("processing {}", name);
 		let mtime = file.stat().mtime();
-        let text = self.file_processor.read_from_file(file).await?;
+        let text = self.file_processor.read_from_file(file).await.context(format!("Failed to read {}", name))?;
 		let sections = extract_sections(&name, &mtime.to_string(), &text, &self.section_delimeter_regex)?;
 		Ok(sections)
 	}
@@ -133,11 +140,10 @@ fn remove_hashtags(text: &str) -> String {
 }
 
 fn remove_links(text: &str) -> String {
-    let input = text.clone();
     lazy_static! {
         static ref LINK_REGEX: Regex = Regex::new(r"!\[.*?\]\(.*?\)").unwrap();
     }
-    let res = LINK_REGEX.replace_all(input, "");
+    let res = LINK_REGEX.replace_all(text, "");
     res.to_string()
 }
     

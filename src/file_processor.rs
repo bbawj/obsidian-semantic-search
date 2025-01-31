@@ -1,10 +1,10 @@
 use std::collections::HashMap;
-use std::collections::HashSet;
 use std::convert::TryInto;
 use anyhow::{Context, Result};
 
 use csv::ReaderBuilder;
 use log::debug;
+use log::info;
 use serde::Deserialize;
 use serde::Serialize;
 use wasm_bindgen::JsCast;
@@ -90,7 +90,6 @@ impl FileProcessor {
 			name_to_modified.insert(e.name, (e.mtime, e.embedding));
 		});
 
-		let mut modified_files = HashSet::new();
 		let mut embedding_rows: Vec<EmbeddingRow> = Vec::new();
 
 		input.retain(|r| {
@@ -100,10 +99,9 @@ impl FileProcessor {
 					return false;
 				}
 			}
-			modified_files.insert(r.name.to_string());
 			true
 		});
-		Ok((modified_files.len().try_into().expect("Too many files"), input, embedding_rows))
+		Ok((input.len().try_into().expect("Too many files"), input, embedding_rows))
 	}
 
 	pub async fn write_input_csv(&self, embeddings: Vec<InputRow>) -> Result<()> {
@@ -185,7 +183,7 @@ impl FileProcessor {
     pub fn get_vault_markdown_files(&self, ignored_folders_setting: String) -> Vec<TFile> {
         let root = self.vault.getRoot();
         let ignored_folders: Vec<String> = ignored_folders_setting.split("\n").map(|x| x.to_string()).collect();
-        debug!("Ignored folders: {:?}", &ignored_folders);
+        info!("Ignored folders: {:?}", &ignored_folders);
     
         return self.search_for_markdown_files(root, &ignored_folders);
     }

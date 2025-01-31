@@ -14,7 +14,15 @@ extern "C" {
     pub type semanticSearchSettings;
 
     #[wasm_bindgen(method, getter)]
+    pub fn apiUrl(this: &semanticSearchSettings) -> String;
+    #[wasm_bindgen(method, getter)]
     pub fn apiKey(this: &semanticSearchSettings) -> String;
+    #[wasm_bindgen(method, getter)]
+    pub fn model(this: &semanticSearchSettings) -> String;
+    #[wasm_bindgen(method, getter)]
+    pub fn apiResponseType(this: &semanticSearchSettings) -> String;
+    #[wasm_bindgen(method, getter)]
+    pub fn debugMode(this: &semanticSearchSettings) -> bool;
     #[wasm_bindgen(method, getter)]
     pub fn ignoredFolders(this: &semanticSearchSettings) -> String;
     #[wasm_bindgen(method, getter)]
@@ -48,10 +56,10 @@ extern "C" {
     #[derive(Debug)]
     pub type TAbstractFile;
 
-	#[derive(Debug)]
-	pub type FileStats;
-	#[wasm_bindgen(method,getter)]
-	pub fn mtime(this: &FileStats) -> f64;
+    #[derive(Debug)]
+    pub type FileStats;
+    #[wasm_bindgen(method, getter)]
+    pub fn mtime(this: &FileStats) -> f64;
 
     #[derive(Debug)]
     #[wasm_bindgen(extends = TAbstractFile)]

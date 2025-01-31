@@ -55,7 +55,7 @@ export class LinkSuggest extends EditorSuggest<Suggestion> {
           return []
         }
 
-        const wasmSuggestions: WASMSuggestion[] = await plugin.get_suggestions(this.app, this.settings.apiKey, query);
+        const wasmSuggestions: WASMSuggestion[] = await plugin.get_suggestions(this.app, this.settings, query);
         const suggestions: Suggestion[] = wasmSuggestions.map(wasmSuggestion => new Suggestion(this.app, wasmSuggestion, this.settings.sectionDelimeterRegex));
 
         suggestions.forEach(suggestion => {

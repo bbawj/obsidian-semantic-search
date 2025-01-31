@@ -26,10 +26,14 @@ export class QueryModal extends Modal {
 
       const estimate_container = contentEl.createDiv({cls: "prompt-instructions"});
       const estimate_text = estimate_container.createDiv({cls: "prompt-instruction"});
-      estimate_text.setText("Estimated cost of query: $0");
-      input.addEventListener("input", (e) => {
-        this.debounce(() => this.update_query_cost_estimate(e, estimate_text), this.delay);
-      })
+	  if (this.settings.costEstimation) {
+		  estimate_text.setText("Estimated cost of query: $0");
+		  input.addEventListener("input", (e) => {
+			  this.debounce(() => this.update_query_cost_estimate(e, estimate_text), this.delay);
+		  })
+	  } else {
+		  estimate_text.setText("Cost estimation is disabled");
+	  }
 
       const button = inputContainer.createEl("button", {text: "Submit", cls: "ss-query-submit-button"});
       const resultsDiv = contentEl.createDiv({cls: "prompt-results"});
@@ -64,7 +68,7 @@ export class QueryModal extends Modal {
 
   // Returns all available suggestions.
   async getSuggestions(query: string): Promise<Suggestion[]> {
-    const wasmSuggestions: WASMSuggestion[] = await plugin.get_suggestions(this.app, this.settings.apiKey, query);
+    const wasmSuggestions: WASMSuggestion[] = await plugin.get_suggestions(this.app, this.settings, query);
     const suggestions: Suggestion[] = wasmSuggestions.map(wasmSuggestion => new Suggestion(this.app, wasmSuggestion, this.settings.sectionDelimeterRegex));
 
     suggestions.forEach(async suggestion => {

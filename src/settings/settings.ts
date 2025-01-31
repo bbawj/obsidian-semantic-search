@@ -2,8 +2,13 @@ import SemanticSearch from "main";
 import { App, PluginSettingTab, Setting, TextComponent } from "obsidian";
 
 export interface semanticSearchSettings {
+	apiUrl: string;
 	apiKey: string;
+	model: string;
+	costEstimation: boolean;
+	debugMode: boolean;
 	ignoredFolders: string;
+	apiResponseType: string;
 	sectionDelimeterRegex: string;
 	numBatches: number;
 	enableLinkRecommendationSuggestor: boolean;
@@ -25,8 +30,19 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 		containerEl.createEl('h2', {text: 'Obsidian Semantic Search'});
 
 		new Setting(containerEl)
-			.setName('OpenAI API Key')
-			.setDesc('https://platform.openai.com/account/api-keys')
+			.setName('API URL')
+			.setDesc('URL to query for embeddings')
+			.addText(text => text
+				.setPlaceholder('Enter your url')
+				.setValue(this.plugin.settings.apiUrl)
+				.onChange(async (value) => {
+					this.plugin.settings.apiUrl = value;
+					await this.plugin.saveSettings();
+				}));
+
+		new Setting(containerEl)
+			.setName('API Key')
+			.setDesc('if your endpoint needs one, this places the key into the Bearer HTTP header')
 			.addText(text => text
 				.setPlaceholder('Enter your secret')
 				.setValue(this.plugin.settings.apiKey)
@@ -34,6 +50,27 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
 					this.plugin.settings.apiKey = value;
 					await this.plugin.saveSettings();
 				}));
+
+		new Setting(containerEl)
+			.setName('Model')
+			.setDesc('value set in the "model" key request body')
+			.addText(text => text
+				.setValue(this.plugin.settings.model)
+				.onChange(async (value) => {
+					this.plugin.settings.model = value;
+					await this.plugin.saveSettings();
+				}));
+		new Setting(containerEl)
+		.setName('API response type')
+		.setDesc("List of supported API response types since different APIs return different JSON structures")
+		.addDropdown(dropdown => dropdown
+					 .addOption("Ollama", "Ollama")
+					 .addOption("OpenAI", "OpenAI")
+					 .setValue(this.plugin.settings.apiResponseType)
+					 .onChange(async (value) => {
+						 this.plugin.settings.apiResponseType = value;
+						 await this.plugin.saveSettings();
+					 }));
 
     const presetRegexes: Record<string, string> = {
       ".": "Match every line",
@@ -100,6 +137,24 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
                .setValue(this.plugin.settings.enableLinkRecommendationSuggestor)
                .onChange(async (value) => {
                  this.plugin.settings.enableLinkRecommendationSuggestor = value;
+                 await this.plugin.saveSettings();
+               }));
+    new Setting(containerEl)
+    .setName("Enable cost estimation")
+    .setDesc("Based on OpenAI's cl100k tokenizer at $0.0004 / 1000 tokens")
+    .addToggle(toggleComponent => toggleComponent
+               .setValue(this.plugin.settings.costEstimation)
+               .onChange(async (value) => {
+                 this.plugin.settings.costEstimation = value;
+                 await this.plugin.saveSettings();
+               }));
+    new Setting(containerEl)
+    .setName("Enable debug mode logging")
+    .setDesc("Requires reloading")
+    .addToggle(toggleComponent => toggleComponent
+               .setValue(this.plugin.settings.debugMode)
+               .onChange(async (value) => {
+                 this.plugin.settings.debugMode = value;
                  await this.plugin.saveSettings();
                }));
 	}
