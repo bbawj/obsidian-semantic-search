@@ -23,7 +23,7 @@ https://user-images.githubusercontent.com/53790951/231014867-ce37c097-3b22-412a-
 ## Configuration
 |Setting|Description|
 |-------|-----------|
-|API URL| Any arbitrary url endpoint for obtaining embeddings (but make sure the response JSON is supported).
+|API URL| Any arbitrary url endpoint for obtaining embeddings, but make sure the response JSON is supported (selected from "API repsonse type"). e.g. OpenAI: https://api.openai.com/v1/embeddings. Ollama: http://localhost:11434/api/embed
 |API Key| Optional API key that is placed into Bearer Auth HTTP header. This gets stored into `data.json` as per all obsidian plugin settings data so make sure you do not commit this file to a repository.
 |Model| The model id, passed in the key "model" of request.
 |API response type| The type of response JSON expected to be returned from the URL.
