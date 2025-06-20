@@ -235,7 +235,10 @@ pub async fn get_suggestions(
     settings: &obsidian::semanticSearchSettings,
     query: JsString,
 ) -> Result<JsValue, JsError> {
-    let query_string = query.as_string().unwrap();
+    let query_string = match query.as_string() {
+		Some(s) => s,
+		None => return Err(JsError::new("Input to get_suggestions could not be parsed into a String")),
+	};
     let file_processor = FileProcessor::new(app.vault());
     let client = Client::new(settings);
     let query_cmd = QueryCommand {
@@ -250,7 +253,8 @@ pub async fn get_suggestions(
 #[wasm_bindgen]
 pub fn get_query_cost_estimate(query: &str) -> f32 {
     const TOKEN_COST: f32 = 0.0004 / 1000.0;
-    let tokens = cl100k_base().unwrap().encode_with_special_tokens(query);
+	// TODO: parametrize the tokenizer
+    let tokens = cl100k_base().expect("Failed to init tokenizer").encode_with_special_tokens(query);
     let tokens_length = tokens.len() as f32;
     return TOKEN_COST * tokens_length;
 }

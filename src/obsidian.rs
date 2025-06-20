@@ -29,6 +29,8 @@ extern "C" {
     pub fn sectionDelimeterRegex(this: &semanticSearchSettings) -> String;
     #[wasm_bindgen(method, getter)]
     pub fn numBatches(this: &semanticSearchSettings) -> u32;
+    #[wasm_bindgen(method, getter)]
+    pub fn maxTokenLength(this: &semanticSearchSettings) -> u32;
 
     #[derive(Clone)]
     pub type App;

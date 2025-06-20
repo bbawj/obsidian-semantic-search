@@ -11,6 +11,7 @@ export interface semanticSearchSettings {
 	apiResponseType: string;
 	sectionDelimeterRegex: string;
 	numBatches: number;
+	maxTokenLength: number;
 	enableLinkRecommendationSuggestor: boolean;
 }
 
@@ -129,6 +130,16 @@ export class SemanticSearchSettingTab extends PluginSettingTab {
         .setLimits(1, 100, 1)
         .setDynamicTooltip()
         .showTooltip());
+
+		new Setting(containerEl)
+		.setName('Max token length')
+		.setDesc("Used to truncate the text to this length in case of API restrictions.")
+		.addText(text => text
+				 .setValue(this.plugin.settings.maxTokenLength)
+				 .onChange(async (value) => {
+					 this.plugin.settings.maxTokenLength = value;
+					 await this.plugin.saveSettings();
+				 }));
 
     new Setting(containerEl)
     .setName("Enable link recommendation using {{}}")

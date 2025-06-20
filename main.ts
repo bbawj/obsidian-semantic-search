@@ -94,6 +94,7 @@ export default class SemanticSearch extends Plugin {
       apiResponseType: 'Ollama',
       sectionDelimeterRegex: '.',
       numBatches: 1,
+      maxTokenLength: 8191,
       enableLinkRecommendationSuggestor: false
     }
 

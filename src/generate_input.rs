@@ -19,6 +19,7 @@ pub struct GenerateInputCommand {
     file_processor: FileProcessor,
     ignored_folders: String,
     section_delimeter_regex: String,
+    max_token_length: u32,
 }
 
 #[wasm_bindgen]
@@ -28,8 +29,9 @@ impl GenerateInputCommand {
         let file_processor = FileProcessor::new(app.vault());
         let ignored_folders = settings.ignoredFolders();
         let section_delimeter_regex = settings.sectionDelimeterRegex();
+        let max_token_length = settings.maxTokenLength();
 
-        GenerateInputCommand { file_processor, ignored_folders, section_delimeter_regex}
+        GenerateInputCommand { file_processor, ignored_folders, section_delimeter_regex, max_token_length}
     }
 
     pub async fn callback(&self) {
@@ -59,6 +61,8 @@ impl GenerateInputCommand {
     async fn generate_input(&self) -> Result<Vec<InputRow>, SemanticSearchError> {
         let files = self.file_processor.get_vault_markdown_files(self.ignored_folders.clone());
 		info!("Found {} files", files.len());
+		info!("Processing files with regex: {}, max token length: {}",
+			&self.section_delimeter_regex, &self.max_token_length);
 		let mut folded_input: Vec<InputRow> = Vec::new();
         for file in files {
             match self.process_file(file).await {
@@ -76,12 +80,12 @@ impl GenerateInputCommand {
 		debug!("processing {}", name);
 		let mtime = file.stat().mtime();
         let text = self.file_processor.read_from_file(file).await.context(format!("Failed to read {}", name))?;
-		let sections = extract_sections(&name, &mtime.to_string(), &text, &self.section_delimeter_regex)?;
+		let sections = extract_sections(&name, &mtime.to_string(), &text, &self.section_delimeter_regex, self.max_token_length)?;
 		Ok(sections)
 	}
 }
 
-fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Result<Vec<InputRow>, SemanticSearchError> {
+fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str, max_token_length: u32) -> Result<Vec<InputRow>, SemanticSearchError> {
     let mut output: Vec<InputRow> = Vec::new();
     let mut lines = text.lines().peekable();
     let re = match Regex::new(delimeter) {
@@ -96,8 +100,8 @@ fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Res
     while let Some(line) = lines.next() {
         if re.is_match(&line) {
             if !(section_header.trim().is_empty() && body.trim().is_empty()) {
-				let section_text = clean_text(&section_header);
-				let body_text = clean_text(&body);
+				let section_text = clean_text(&section_header, max_token_length);
+				let body_text = clean_text(&body, max_token_length);
 				if !(section_text.is_empty() && body_text.is_empty()) {
 					output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: section_text, body: body_text});
 				}
@@ -108,15 +112,15 @@ fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Res
 			if section_header.is_empty() {
 				section_header = line.to_string();
 			}
-			let cleaned_line = clean_text(line);
+			let cleaned_line = clean_text(line, max_token_length);
 			if !cleaned_line.is_empty() {
 				body.push_str(&" ");
 				body.push_str(&cleaned_line);
 			}
 		}
 		if lines.peek().is_none() && !(section_header.trim().is_empty() && body.trim().is_empty()) {
-			let section_text = clean_text(&section_header);
-			let body_text = clean_text(&body);
+			let section_text = clean_text(&section_header, max_token_length);
+			let body_text = clean_text(&body, max_token_length);
 			if !(section_text.is_empty() && body_text.is_empty()) {
 				output.push(InputRow { name: name.to_string(), mtime: mtime.to_string(), section: section_text, body: body_text});
 			}
@@ -125,14 +129,16 @@ fn extract_sections(name: &str, mtime: &str, text: &str, delimeter: &str) -> Res
     Ok(output)
 }
 
-fn clean_text(text: &str) -> String {
-    const MAX_TOKEN_LENGTH: usize = 8191;
+fn clean_text(text: &str, max_token_length: u32) -> String {
     let mut input = remove_hashtags(text);
     input = remove_links(&input);
     input = input.trim().to_string();
 
-    input.truncate(MAX_TOKEN_LENGTH);
-    input
+	if let Some(best_fit) = (1..=std::cmp::min(max_token_length as usize, input.len())).rev().find(|i| input.is_char_boundary(*i)) {
+		input.truncate(best_fit);
+		return input;
+	}
+	String::new()
 }
 
 fn remove_hashtags(text: &str) -> String {
@@ -152,13 +158,14 @@ fn remove_links(text: &str) -> String {
 mod tests {
     use super::*;
     const NAME: &str = "test";
+    const DEFAULT_MAX_TOKEN: u32 = 8191;
 
     #[test]
     fn single_line() {
         let text = "## Test";
         let section_delimeter = r"^## \S*";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
 
         assert_eq!(res.len(), 1);
         assert_eq!(res.get(0).unwrap().name, "test");
@@ -171,7 +178,7 @@ mod tests {
         let text = " ";
         let section_delimeter = r".";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
 
         assert_eq!(res.len(), 0);
 	}
@@ -181,7 +188,7 @@ mod tests {
         let text = "Test\n \nTest2\n ";
         let section_delimeter = r".";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
 
         assert_eq!(res.len(), 2);
         assert_eq!(res.get(0).unwrap().section, "Test");
@@ -195,7 +202,7 @@ mod tests {
         let text = "## Test\n ";
         let section_delimeter = r"^## \S*";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
 
         assert_eq!(res.len(), 1);
         assert_eq!(res.get(0).unwrap().name, "test");
@@ -208,7 +215,7 @@ mod tests {
         let text = "## Test\nThis is a test body.";
         let section_delimeter = r"^## \S*";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
 
         assert_eq!(res.len(), 1);
         assert_eq!(res.get(0).unwrap().name, "test");
@@ -221,7 +228,7 @@ mod tests {
         let text = "## Test\n## Test2";
         let section_delimeter = r"^## .*";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
 
         assert_eq!(res.len(), 2);
         assert_eq!(res.get(0).unwrap().name, "test");
@@ -237,7 +244,7 @@ mod tests {
         let text = "# Test1\ncontent1\n## Test2\ncontent2\n### Test3\ncontent3\n#### Test4\ncontent4\n##### Test5\ncontent5\n###### Test6\ncontent6";
         let section_delimeter = r"^#{1,6} ";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
         println!("{:?}", res);
 
         assert_eq!(res.len(), 6);
@@ -266,7 +273,7 @@ mod tests {
         let text = "# Test1\ncontent1\n## Test2\ncontent2\n### Test3\ncontent3\n#### Test4\ncontent4\n##### Test5\ncontent5\n###### Test6\ncontent6";
         let section_delimeter = r"^### \S*";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
 
         assert_eq!(res.len(), 2);
         assert_eq!(res.get(1).unwrap().name, "test");
@@ -306,7 +313,7 @@ mod tests {
         let text = "## Test\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)\n### Test2\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)";
         let section_delimeter = "^## .*";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
         println!("{:?}", res.get(0));
 
         assert_eq!(res.len(), 1);
@@ -329,7 +336,7 @@ Guarantees reliability only if sender is correct
 ";
         let section_delimeter = "##";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
         println!("{:?}", res.get(0));
 
         assert_eq!(res.len(), 2);
@@ -349,7 +356,7 @@ Guarantees reliability only if sender is correct
         let text = "## Test\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)\n### Test2\n![Pasted image 20220415211535](Pics/Pasted%20image%2020220415211535.png)";
         let section_delimeter = "";
 
-        let res = extract_sections(NAME, &" ", text, &section_delimeter).unwrap();
+        let res = extract_sections(NAME, &" ", text, &section_delimeter, DEFAULT_MAX_TOKEN).unwrap();
         println!("{:?}", res.get(0));
 
         assert_eq!(res.len(), 2);
